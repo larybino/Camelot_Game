@@ -5,9 +5,14 @@ from sys import exit
 pygame.init()
 
 BLACK = (0, 0, 0)
+BLUE = (30,  60, 120)
 BROWN = (139, 69, 19)
 GREEN = (0, 255, 0)
+GREY = (120,110, 100)
 RED = (255, 0, 0)
+player_speed = 200  
+gravity = 900       
+jump_speed = -420
 
 screen = pygame.display.set_mode([640, 480])
 pygame.display.set_caption('Camelot')
@@ -19,13 +24,63 @@ ground_height = 80
 
 player_pos = pygame.Vector2(60, ground_y - 20) 
 player_vel = pygame.Vector2(0, 0)
-player_speed = 200  
-gravity = 900       
-jump_speed = -420
+
 on_ground = True
 
-obstacle_rect = pygame.Rect(200, 320, 200, 50)
-obstacle_is_ground = False
+
+
+class Platform:
+    def __init__(self, x, y, width, height):
+        self.rect        = pygame.Rect(x, y, width, height)
+        self.color       = BROWN if height >= 40 else GREY
+        self.grass_color = GREEN
+
+    def draw(self, surface, parallax_factor=0):
+        draw_rect = self.rect.move(-parallax_factor, 0)
+        pygame.draw.rect(surface, self.color, draw_rect)
+        grass_react = pygame.Rect(draw_rect.x, draw_rect.y - 10, draw_rect.width, 10)
+        pygame.draw.rect(surface, self.grass_color, grass_react)
+
+
+
+def build_platforms():
+    platforms = []
+    ground_y = 400
+    ground_segments = [
+        (0,    2000),
+        (2100, 1800),
+        (4000, 2000),
+    ]
+    for start_x, width in ground_segments:
+        platforms.append(Platform(start_x, ground_y, width, 80))
+    floating = [
+        (350,  340, 120),
+        (530,  280, 100),
+        (700,  320, 130),
+
+        (1000, 350, 110),
+        (1160, 290, 110),
+        (1320, 230, 110),   
+
+        (1900, 310, 120),
+        (2020, 270, 80),    
+        (2120, 310, 120),
+
+        (2400, 340, 130),
+        (2600, 280, 100),
+        (2800, 330, 140),
+
+        (3200, 300, 90),
+        (3370, 240, 90),
+        (3540, 300, 90),
+        (3720, 360, 110),
+    ]
+    for x, y, w in floating:
+        platforms.append(Platform(x, y, w, 18))
+    return platforms
+
+platforms = build_platforms()
+
 
 running = True
 while running:
@@ -44,46 +99,39 @@ while running:
     if (keys[K_UP] or keys[K_w]) and on_ground:
         player_vel.y = jump_speed
         on_ground = False
-        obstacle_is_ground = False
 
     player_vel.y += gravity * dt
 
     prev_pos = player_pos.copy()
     player_pos += player_vel * dt
 
-    player_bottom = player_pos.y + 40 
+    player_bottom = player_pos.y + 40
+    player_rect = pygame.Rect(player_pos.x, player_pos.y, 40, 40)
+    on_ground = False
+    for plat in platforms:
+        plat_rect = plat.rect
+        if player_rect.colliderect(plat_rect):
+            if prev_pos.y + 40 <= plat_rect.top and player_vel.y > 0:
+                player_pos.y = plat_rect.top - 40
+                player_vel.y = 0
+                on_ground = True
+            elif prev_pos.y >= plat_rect.bottom and player_vel.y < 0:
+                player_pos.y = plat_rect.bottom
+                player_vel.y = 0
+            elif prev_pos.x + 40 <= plat_rect.left and player_vel.x > 0:
+                player_pos.x = plat_rect.left - 40
+            elif prev_pos.x >= plat_rect.right and player_vel.x < 0:
+                player_pos.x = plat_rect.right
     if player_bottom >= ground_y:
         player_pos.y = ground_y - 40
         player_vel.y = 0
         on_ground = True
-        obstacle_is_ground = False
-
-    player_rect = pygame.Rect(player_pos.x, player_pos.y, 40, 40)
-    if player_rect.colliderect(obstacle_rect):
-        if prev_pos.y + 40 <= obstacle_rect.top and player_vel.y > 0:
-            player_pos.y = obstacle_rect.top - 40
-            player_vel.y = 0
-            on_ground = True
-            obstacle_is_ground = True
-        elif prev_pos.y >= obstacle_rect.bottom and player_vel.y < 0:
-            player_pos.y = obstacle_rect.bottom
-            player_vel.y = 0
-        elif prev_pos.x + 40 <= obstacle_rect.left and player_vel.x > 0:
-            player_pos.x = obstacle_rect.left - 40
-        elif prev_pos.x >= obstacle_rect.right and player_vel.x < 0:
-            player_pos.x = obstacle_rect.right
-
-    if not (player_bottom >= ground_y or (player_rect.colliderect(obstacle_rect) and prev_pos.y + 40 <= obstacle_rect.top)):
-        on_ground = False
-        obstacle_is_ground = False
     screen.fill(BLACK)
-    pygame.draw.line(screen, GREEN, [0, ground_y], [640, ground_y], 5)
-    pygame.draw.rect(screen, BROWN, [0, ground_y, 640, ground_height])
+
+    for plat in platforms:
+        plat.draw(screen)
     pygame.draw.ellipse(screen, RED, [player_pos.x, player_pos.y, 40, 40])
-
-    pygame.draw.line(screen, GREEN, [200, 320], [400, 320], 5)
-    pygame.draw.rect(screen, BROWN, obstacle_rect)
-
     pygame.display.flip()
+    
 pygame.quit()
 exit()

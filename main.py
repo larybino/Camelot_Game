@@ -4,6 +4,9 @@ from sys import exit
 
 pygame.init()
 
+FPS= 60
+SCREEN_W= 640
+SCREEN_H = 480
 BLACK = (0, 0, 0)
 BLUE = (30,  60, 120)
 BROWN = (139, 69, 19)
@@ -14,7 +17,7 @@ player_speed = 200
 gravity = 900       
 jump_speed = -420
 
-screen = pygame.display.set_mode([640, 480])
+screen = pygame.display.set_mode([SCREEN_W, SCREEN_H])
 pygame.display.set_caption('Camelot')
 
 clock = pygame.time.Clock()
@@ -79,16 +82,24 @@ def build_platforms():
         platforms.append(Platform(x, y, w, 18))
     return platforms
 
+def update_parallax(parallax_factor, player_x, world_width):
+    target = player_x - SCREEN_W // 2
+    parallax_factor += (target - parallax_factor) * 0.15
+    parallax_factor = max(0, min(parallax_factor, world_width - SCREEN_W))
+    return parallax_factor
+
+
 platforms = build_platforms()
 
-
+deslocate  = 0.0
+WORLD_WIDTH = 6000
 running = True
 while running:
     for event in pygame.event.get():
         if event.type == QUIT:
             running = False
 
-    dt = clock.tick(60) / 1000 
+    dt = clock.tick(FPS) / 1000
 
     keys = pygame.key.get_pressed()
     player_vel.x = 0
@@ -128,10 +139,12 @@ while running:
         on_ground = True
     screen.fill(BLACK)
 
+    deslocate = update_parallax(deslocate, player_pos.x, WORLD_WIDTH)
+
     for plat in platforms:
-        plat.draw(screen)
-    pygame.draw.ellipse(screen, RED, [player_pos.x, player_pos.y, 40, 40])
+        plat.draw(screen, int(deslocate))
+    pygame.draw.ellipse(screen, RED, [player_pos.x, player_pos.y, 40, 40], int(deslocate))
     pygame.display.flip()
-    
+
 pygame.quit()
 exit()

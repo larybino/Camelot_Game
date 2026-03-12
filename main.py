@@ -23,7 +23,6 @@ pygame.display.set_caption('Camelot')
 clock = pygame.time.Clock()
 
 ground_y = 400
-ground_height = 80
 
 player_pos = pygame.Vector2(60, ground_y - 20) 
 player_vel = pygame.Vector2(0, 0)
@@ -41,10 +40,8 @@ class Platform:
     def draw(self, surface, parallax_factor=0):
         draw_rect = self.rect.move(-parallax_factor, 0)
         pygame.draw.rect(surface, self.color, draw_rect)
-        grass_react = pygame.Rect(draw_rect.x, draw_rect.y - 10, draw_rect.width, 10)
-        pygame.draw.rect(surface, self.grass_color, grass_react)
-
-
+        grass_rect = pygame.Rect(draw_rect.x, draw_rect.y - 10, draw_rect.width, 10)
+        pygame.draw.rect(surface, self.grass_color, grass_rect)
 
 def build_platforms():
     platforms = []
@@ -88,7 +85,6 @@ def update_parallax(parallax_factor, player_x, world_width):
     parallax_factor = max(0, min(parallax_factor, world_width - SCREEN_W))
     return parallax_factor
 
-
 platforms = build_platforms()
 
 deslocate  = 0.0
@@ -104,9 +100,16 @@ while running:
     keys = pygame.key.get_pressed()
     player_vel.x = 0
     if keys[K_LEFT] or keys[K_a]:
-        player_vel.x = -player_speed
+        if keys[K_RCTRL] or keys[K_LCTRL]:
+            player_vel.x = -player_speed * 2
+        else:
+            player_vel.x = -player_speed
+
     if keys[K_RIGHT] or keys[K_d]:
-        player_vel.x = player_speed
+        if keys[K_RCTRL] or keys[K_LCTRL]:
+            player_vel.x = player_speed * 2
+        else:
+            player_vel.x = player_speed
     if (keys[K_UP] or keys[K_w]) and on_ground:
         player_vel.y = jump_speed
         on_ground = False
@@ -143,7 +146,7 @@ while running:
 
     for plat in platforms:
         plat.draw(screen, int(deslocate))
-    pygame.draw.ellipse(screen, RED, [player_pos.x, player_pos.y, 40, 40], int(deslocate))
+    pygame.draw.ellipse(screen, RED, [player_pos.x - int(deslocate), player_pos.y, 40, 40])
     pygame.display.flip()
 
 pygame.quit()

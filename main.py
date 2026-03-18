@@ -4,6 +4,8 @@ from sys import exit
 
 pygame.init()
 
+font = pygame.font.Font(None, 24)
+
 FPS= 60
 SCREEN_W= 640
 SCREEN_H = 480
@@ -12,10 +14,13 @@ BLUE = (30,  60, 120)
 BROWN = (139, 69, 19)
 GREEN = (0, 255, 0)
 GREY = (120,110, 100)
+WHITE= (255, 255, 255)
 RED = (255, 0, 0)
-player_speed = 200  
-gravity = 900       
-jump_speed = -420
+PLAYER_SPEED = 200  
+GRAVITY = 900       
+JUMP_SPEED = -420
+WIDTH  = 40
+HEIGHT = 40
 
 screen = pygame.display.set_mode([SCREEN_W, SCREEN_H])
 pygame.display.set_caption('Camelot')
@@ -29,8 +34,6 @@ player_vel = pygame.Vector2(0, 0)
 
 on_ground = True
 
-
-
 class Platform:
     def __init__(self, x, y, width, height):
         self.rect        = pygame.Rect(x, y, width, height)
@@ -42,6 +45,69 @@ class Platform:
         pygame.draw.rect(surface, self.color, draw_rect)
         grass_rect = pygame.Rect(draw_rect.x, draw_rect.y - 10, draw_rect.width, 10)
         pygame.draw.rect(surface, self.grass_color, grass_rect)
+
+class Player:
+    def __init__(self, x, y):
+        self.pos       = pygame.Vector2(x, y)
+        self.vel       = pygame.Vector2(0, 0)
+        self.on_ground = False
+    @property
+    def rect(self):
+        return pygame.Rect(int(self.pos.x), int(self.pos.y),
+                           WIDTH, HEIGHT)
+ 
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+ 
+        self.vel.x = 0
+        if keys[K_LEFT] or keys[K_a]:
+            if keys[K_RCTRL] or keys[K_LCTRL]:
+                self.vel.x = -PLAYER_SPEED * 2
+            else:
+                self.vel.x = -PLAYER_SPEED
+        if keys[K_RIGHT] or keys[K_d]:
+            if keys[K_RCTRL] or keys[K_LCTRL]:
+                self.vel.x = PLAYER_SPEED * 2
+            else:
+                self.vel.x = PLAYER_SPEED
+        if (keys[K_UP] or keys[K_w] or keys[K_SPACE]) and self.on_ground:
+            self.vel.y = JUMP_SPEED
+            self.on_ground = False
+ 
+    def update(self, dt, platforms):
+        self.vel.y += GRAVITY * dt
+ 
+        prev_pos = self.pos.copy()
+ 
+        self.pos.x += self.vel.x * dt
+        for plat in platforms:
+            if self.rect.colliderect(plat.rect):
+                if self.vel.x > 0:                          
+                    self.pos.x = plat.rect.left - WIDTH
+                elif self.vel.x < 0:                        
+                    self.pos.x = plat.rect.right
+                self.vel.x = 0
+ 
+        self.on_ground = False
+        self.pos.y += self.vel.y * dt
+        for plat in platforms:
+            if self.rect.colliderect(plat.rect):
+                if self.vel.y > 0:                         
+                    self.pos.y = plat.rect.top - HEIGHT
+                    self.vel.y = 0
+                    self.on_ground = True
+                elif self.vel.y < 0:                       
+                    self.pos.y = plat.rect.bottom
+                    self.vel.y = 0
+ 
+    def draw(self, surface, camera_x):
+        draw_x = int(self.pos.x) - camera_x
+        draw_y = int(self.pos.y)
+        pygame.draw.ellipse(surface, RED,
+                            (draw_x, draw_y, WIDTH, HEIGHT))
+        pygame.draw.ellipse(surface, WHITE,
+                            (draw_x, draw_y, WIDTH, HEIGHT), 2)
+
 
 def build_platforms():
     platforms = []
@@ -88,6 +154,7 @@ def update_parallax(parallax_factor, player_x, world_width):
 platforms = build_platforms()
 
 deslocate  = 0.0
+player= Player(60, ground_y - HEIGHT)
 WORLD_WIDTH = 6000
 running = True
 while running:
@@ -96,57 +163,23 @@ while running:
             running = False
 
     dt = clock.tick(FPS) / 1000
-
-    keys = pygame.key.get_pressed()
-    player_vel.x = 0
-    if keys[K_LEFT] or keys[K_a]:
-        if keys[K_RCTRL] or keys[K_LCTRL]:
-            player_vel.x = -player_speed * 2
-        else:
-            player_vel.x = -player_speed
-
-    if keys[K_RIGHT] or keys[K_d]:
-        if keys[K_RCTRL] or keys[K_LCTRL]:
-            player_vel.x = player_speed * 2
-        else:
-            player_vel.x = player_speed
-    if (keys[K_UP] or keys[K_w]) and on_ground:
-        player_vel.y = jump_speed
-        on_ground = False
-
-    player_vel.y += gravity * dt
-
-    prev_pos = player_pos.copy()
-    player_pos += player_vel * dt
-
-    player_bottom = player_pos.y + 40
-    player_rect = pygame.Rect(player_pos.x, player_pos.y, 40, 40)
-    on_ground = False
-    for plat in platforms:
-        plat_rect = plat.rect
-        if player_rect.colliderect(plat_rect):
-            if prev_pos.y + 40 <= plat_rect.top and player_vel.y > 0:
-                player_pos.y = plat_rect.top - 40
-                player_vel.y = 0
-                on_ground = True
-            elif prev_pos.y >= plat_rect.bottom and player_vel.y < 0:
-                player_pos.y = plat_rect.bottom
-                player_vel.y = 0
-            elif prev_pos.x + 40 <= plat_rect.left and player_vel.x > 0:
-                player_pos.x = plat_rect.left - 40
-            elif prev_pos.x >= plat_rect.right and player_vel.x < 0:
-                player_pos.x = plat_rect.right
-    if player_bottom >= ground_y:
-        player_pos.y = ground_y - 40
-        player_vel.y = 0
-        on_ground = True
     screen.fill(BLACK)
-
-    deslocate = update_parallax(deslocate, player_pos.x, WORLD_WIDTH)
+    player.handle_input()
+    player.update(dt, platforms)
+    if player.pos.x < 0:
+            player.pos.x = 0
+    deslocate = update_parallax(deslocate, player.pos.x, WORLD_WIDTH)
 
     for plat in platforms:
         plat.draw(screen, int(deslocate))
-    pygame.draw.ellipse(screen, RED, [player_pos.x - int(deslocate), player_pos.y, 40, 40])
+    player.draw(screen, int(deslocate))
+ 
+    info = font.render(
+        f"X: {int(player.pos.x)}   Y: {int(player.pos.y)}"
+        f"   cam: {int(deslocate)}   {'NO CHÃO' if player.on_ground else 'no ar'}",
+        True, WHITE
+    )
+    screen.blit(info, (10, 10))    
     pygame.display.flip()
 
 pygame.quit()

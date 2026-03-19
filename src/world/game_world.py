@@ -1,0 +1,75 @@
+from src.entities.platform import Platform
+from src.entities.player import Player
+from src.utils.config import SCREEN_W, WORLD_WIDTH, P_HEIGHT
+
+
+class GameWorld:
+    def __init__(self):
+        self.platforms = self._build_platforms()
+        self.player    = self._build_player()
+        self.camera_x  = 0.0
+
+    def _build_platforms(self):
+        platforms = []
+        ground_y  = 400
+
+        ground_segments = [
+            (0,    2000),
+            (2100, 1800),
+            (4000, 2000),
+        ]
+        for start_x, width in ground_segments:
+            platforms.append(Platform(start_x, ground_y, width, 80))
+
+        floating = [
+            (350,  340, 120),
+            (530,  280, 100),
+            (700,  320, 130),
+
+            (1000, 350, 110),
+            (1160, 290, 110),
+            (1320, 230, 110),
+
+            (1900, 310, 120),
+            (2020, 270,  80),
+            (2120, 310, 120),
+
+            (2400, 340, 130),
+            (2600, 280, 100),
+            (2800, 330, 140),
+
+            (3200, 300,  90),
+            (3370, 240,  90),
+            (3540, 300,  90),
+            (3720, 360, 110),
+        ]
+        for x, y, w in floating:
+            platforms.append(Platform(x, y, w, 18))
+
+        return platforms
+
+    def _build_player(self):
+        return Player(60, 400 - P_HEIGHT)
+
+    def _update_camera(self):
+        target = self.player.pos.x - SCREEN_W // 2
+        self.camera_x += (target - self.camera_x) * 0.15
+        self.camera_x = max(0, min(self.camera_x, WORLD_WIDTH - SCREEN_W))
+
+    def update(self, dt):
+        self.player.handle_input()
+        self.player.update(dt, self.platforms)
+        if self.player.pos.x < 0:
+            self.player.pos.x = 0
+        self._update_camera()
+
+    def draw(self, surface):
+        cam = int(self.camera_x)
+        for plat in self.platforms:
+            plat.draw(surface, cam)
+        self.player.draw(surface, cam)
+    
+    def get_info_text(self):
+        return (f"X: {int(self.player.pos.x)}   Y: {int(self.player.pos.y)}"
+                f"   cam: {int(self.camera_x)}   "
+                f"{'NO CHÃO' if self.player.on_ground else 'no ar'}")

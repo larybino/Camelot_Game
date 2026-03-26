@@ -7,7 +7,7 @@ class Player:
     def __init__(self, x, y):
         self.pos       = pygame.Vector2(x, y)
         self.vel       = pygame.Vector2(0, 0)
-        self.on_ground = False
+        self.on_ground = True
     @property
     def rect(self):
         return pygame.Rect(int(self.pos.x), int(self.pos.y),
@@ -34,8 +34,6 @@ class Player:
     def update(self, dt, platforms):
         self.vel.y += GRAVITY * dt
  
-        prev_pos = self.pos.copy()
- 
         self.pos.x += self.vel.x * dt
         for plat in platforms:
             if self.rect.colliderect(plat.rect):
@@ -45,17 +43,18 @@ class Player:
                     self.pos.x = plat.rect.right
                 self.vel.x = 0
  
-        self.on_ground = False
         self.pos.y += self.vel.y * dt
         for plat in platforms:
             if self.rect.colliderect(plat.rect):
                 if self.vel.y > 0:                         
                     self.pos.y = plat.rect.top - P_HEIGHT
-                    self.vel.y = 0
                     self.on_ground = True
                 elif self.vel.y < 0:                       
                     self.pos.y = plat.rect.bottom
-                    self.vel.y = 0
+                self.vel.y = 0
+        if self.pos.y > 465:
+            self.pos.x = 60
+            self.pos.y = 320
  
     def draw(self, surface, camera_x):
         draw_x = int(self.pos.x) - camera_x

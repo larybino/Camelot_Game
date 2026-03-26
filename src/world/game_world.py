@@ -1,6 +1,6 @@
 from src.entities.platform import Platform
 from src.entities.player import Player
-from src.utils.config import SCREEN_W, WORLD_WIDTH, P_HEIGHT
+from src.utils.config import SCREEN_W, WORLD_WIDTH, P_HEIGHT, P_WIDTH
 
 
 class GameWorld:
@@ -61,6 +61,8 @@ class GameWorld:
         self.player.update(dt, self.platforms)
         if self.player.pos.x < 0:
             self.player.pos.x = 0
+        elif self.player.pos.x > WORLD_WIDTH - P_WIDTH:
+            self.player.pos.x = WORLD_WIDTH - P_WIDTH
         self._update_camera()
 
     def draw(self, surface):
@@ -72,4 +74,4 @@ class GameWorld:
     def get_info_text(self):
         return (f"X: {int(self.player.pos.x)}   Y: {int(self.player.pos.y)}"
                 f"   cam: {int(self.camera_x)}   "
-                f"{'NO CHÃO' if self.player.on_ground else 'no ar'}")
+                f"{'no chão' if self.player.on_ground else 'no ar'}")

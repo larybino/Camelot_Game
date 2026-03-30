@@ -1,10 +1,10 @@
 import pygame
 from src.utils.config import BROWN, GREEN, GREY
+from src.world.game_object import GameObject
 
-class Platform:
+class Platform(GameObject):
     def __init__(self, x, y, width, height):
-        self.rect        = pygame.Rect(x, y, width, height)
-        self.color       = BROWN if height >= 40 else GREY
+        super().__init__(x, y, width, height, BROWN if height >= 40 else GREY)
         self.grass_color = GREEN
 
     def draw(self, surface, parallax_factor=0):

@@ -1,17 +1,19 @@
 import pygame
 from pygame.locals import *
 from src.utils.config import (PLAYER_SPEED, GRAVITY, JUMP_SPEED, WHITE, RED, P_WIDTH, P_HEIGHT)
+from src.world.game_object import GameObject
 
 
-class Player:
+class Player(GameObject):
     def __init__(self, x, y):
-        self.pos       = pygame.Vector2(x, y)
+        super().__init__(x, y, P_WIDTH, P_HEIGHT, RED)
         self.vel       = pygame.Vector2(0, 0)
         self.on_ground = True
+    
     @property
     def rect(self):
         return pygame.Rect(int(self.pos.x), int(self.pos.y),
-                           P_WIDTH, P_HEIGHT)
+                           self.width, self.height)
  
     def handle_input(self):
         keys = pygame.key.get_pressed()
@@ -52,9 +54,8 @@ class Player:
             self.pos.y = 320
  
     def draw(self, surface, camera_x):
-        draw_x = int(self.pos.x) - camera_x
-        draw_y = int(self.pos.y)
-        pygame.draw.ellipse(surface, RED,
-                            (draw_x, draw_y, P_WIDTH, P_HEIGHT))
+        draw_x, draw_y = int(self.pos.x) - camera_x, int(self.pos.y)
+        pygame.draw.ellipse(surface, self.color,
+                            (draw_x, draw_y, self.width, self.height))
         pygame.draw.ellipse(surface, WHITE,
-                            (draw_x, draw_y, P_WIDTH, P_HEIGHT), 2)
+                            (draw_x, draw_y, self.width, self.height), 2)

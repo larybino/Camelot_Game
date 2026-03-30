@@ -18,15 +18,9 @@ class Player:
  
         self.vel.x = 0
         if keys[K_LEFT] or keys[K_a]:
-            if keys[K_RCTRL] or keys[K_LCTRL]:
-                self.vel.x = -PLAYER_SPEED * 2
-            else:
-                self.vel.x = -PLAYER_SPEED
+            self.vel.x = -PLAYER_SPEED * 2 if keys[K_RCTRL] or keys[K_LCTRL] else -PLAYER_SPEED
         if keys[K_RIGHT] or keys[K_d]:
-            if keys[K_RCTRL] or keys[K_LCTRL]:
-                self.vel.x = PLAYER_SPEED * 2
-            else:
-                self.vel.x = PLAYER_SPEED
+            self.vel.x = PLAYER_SPEED * 2 if keys[K_RCTRL] or keys[K_LCTRL] else PLAYER_SPEED
         if (keys[K_UP] or keys[K_w] or keys[K_SPACE]) and self.on_ground:
             self.vel.y = JUMP_SPEED
             self.on_ground = False
@@ -35,23 +29,24 @@ class Player:
         self.vel.y += GRAVITY * dt
  
         self.pos.x += self.vel.x * dt
-        for plat in platforms:
-            if self.rect.colliderect(plat.rect):
-                if self.vel.x > 0:                          
-                    self.pos.x = plat.rect.left - P_WIDTH
-                elif self.vel.x < 0:                        
-                    self.pos.x = plat.rect.right
-                self.vel.x = 0
+        plat_id = self.rect.collidelist(platforms)
+        if plat_id != -1:
+            if self.vel.x > 0:                          
+                self.pos.x = platforms[plat_id].rect.left - P_WIDTH
+            elif self.vel.x < 0:                        
+                self.pos.x = platforms[plat_id].rect.right
+            self.vel.x = 0
  
         self.pos.y += self.vel.y * dt
-        for plat in platforms:
-            if self.rect.colliderect(plat.rect):
-                if self.vel.y > 0:                         
-                    self.pos.y = plat.rect.top - P_HEIGHT
-                    self.on_ground = True
-                elif self.vel.y < 0:                       
-                    self.pos.y = plat.rect.bottom
-                self.vel.y = 0
+        plat_id = self.rect.collidelist(platforms)
+        if plat_id != -1:
+            if self.vel.y > 0:                         
+                self.pos.y = platforms[plat_id].rect.top - P_HEIGHT
+                self.on_ground = True
+            elif self.vel.y < 0:                       
+                self.pos.y = platforms[plat_id].rect.bottom
+            self.vel.y = 0
+
         if self.pos.y > 465:
             self.pos.x = 60
             self.pos.y = 320

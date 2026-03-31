@@ -1,4 +1,6 @@
-from src.entities.platform import Platform
+from src.building.ladder import Ladder
+from src.entities.artifact import Artifact
+from src.building.platform import Platform
 from src.entities.player import Player
 from src.utils.config import SCREEN_W, WORLD_WIDTH, P_HEIGHT, P_WIDTH
 
@@ -7,6 +9,7 @@ class GameWorld:
     def __init__(self):
         self.platforms = self._build_platforms()
         self.player    = self._build_player()
+        self.ladders   = self._build_ladders()
         self.camera_x  = 0.0
 
     def _build_platforms(self):
@@ -47,6 +50,18 @@ class GameWorld:
             platforms.append(Platform(x, y, w, 18))
 
         return platforms
+    
+    def _build_ladders(self):
+        ladders = []
+        ladder_positions = [
+            (1000, 200, 20, 100),
+            (1160, 190, 20, 100),
+            (1300, 230, 20, 100),
+        ]
+        for x, y, width, height in ladder_positions:
+            ladders.append(Ladder(x, y, width, height))
+
+        return ladders
 
     def _build_player(self):
         return Player(60, 400 - P_HEIGHT)
@@ -58,11 +73,19 @@ class GameWorld:
 
     def update(self, dt):
         self.player.handle_input()
-        self.player.update(dt, self.platforms)
+        if self.player.rect.collidelist(self.ladders) != -1:
+            self.player.handle_ladders(dt)
+        else:
+            self.player.update(dt, self.platforms)
+
         if self.player.pos.x < 0:
             self.player.pos.x = 0
         elif self.player.pos.x > WORLD_WIDTH - P_WIDTH:
             self.player.pos.x = WORLD_WIDTH - P_WIDTH
+
+        if self.player.pos.y > 465:
+            self.player.pos.x = 60
+            self.player.pos.y = 320
         self._update_camera()
 
     def draw(self, surface):
@@ -70,6 +93,8 @@ class GameWorld:
         for plat in self.platforms:
             plat.draw(surface, cam)
         self.player.draw(surface, cam)
+        for ladder in self.ladders:
+            ladder.draw(surface, cam)
     
     def get_info_text(self):
         return (f"X: {int(self.player.pos.x)}   Y: {int(self.player.pos.y)}"

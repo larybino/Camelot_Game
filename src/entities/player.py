@@ -49,9 +49,14 @@ class Player(GameObject):
                 self.pos.y = platforms[plat_id].rect.bottom
             self.vel.y = 0
 
-        if self.pos.y > 465:
-            self.pos.x = 60
-            self.pos.y = 320
+    def handle_ladders(self, dt):
+        self.vel.y = 0
+        self.on_ground = True
+        keys = pygame.key.get_pressed()
+        if keys[K_UP] or keys[K_w] or keys[K_SPACE] or keys[K_RIGHT] or keys[K_d]:
+            self.pos.y -= PLAYER_SPEED * dt // 2
+        elif keys[K_DOWN] or keys[K_s] or keys[K_LEFT] or keys[K_a]:
+            self.pos.y += PLAYER_SPEED * dt // 2
  
     def draw(self, surface, camera_x):
         draw_x, draw_y = int(self.pos.x) - camera_x, int(self.pos.y)

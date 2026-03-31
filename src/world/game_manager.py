@@ -1,5 +1,5 @@
 import pygame
-from pygame.locals import QUIT
+from pygame.locals import QUIT, KEYDOWN
 from src.utils.config import (SCREEN_W, SCREEN_H, FPS, BLACK, WHITE)
 from src.world.game_world import GameWorld
 
@@ -37,8 +37,11 @@ class GameManager:
         self.screen.fill(BLACK)
         self.game_world.draw(self.screen)
         info_text    = self.game_world.get_info_text()
+        artifact_text = self.game_world.get_artifact_info()
         info_surface = self.font.render(info_text, True, WHITE)
+        artifact_surface = self.font.render(artifact_text, True, WHITE)
         self.screen.blit(info_surface, (10, 10))
+        self.screen.blit(artifact_surface, (10, 30))
         pygame.display.flip()
 
     def quit(self):

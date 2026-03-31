@@ -9,6 +9,8 @@ class Player(GameObject):
         super().__init__(x, y, P_WIDTH, P_HEIGHT, RED)
         self.vel       = pygame.Vector2(0, 0)
         self.on_ground = True
+        self.alive     = True
+        self.artifacts  = []
     
     @property
     def rect(self):

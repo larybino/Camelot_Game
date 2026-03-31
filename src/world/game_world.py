@@ -9,6 +9,7 @@ class GameWorld:
     def __init__(self):
         self.platforms = self._build_platforms()
         self.player    = self._build_player()
+        self.artifacts = self._build_artifacts()
         self.ladders   = self._build_ladders()
         self.camera_x  = 0.0
 
@@ -65,6 +66,13 @@ class GameWorld:
 
     def _build_player(self):
         return Player(60, 400 - P_HEIGHT)
+    
+    def _build_artifacts(self):
+        return [
+            Artifact("Excalibur", "power", 587, 240),
+            Artifact("Santo Graal", "healing"),
+            Artifact("Cajado de Merlim", "magic"),
+        ]
 
     def _update_camera(self):
         target = self.player.pos.x - SCREEN_W // 2
@@ -73,6 +81,12 @@ class GameWorld:
 
     def update(self, dt):
         self.player.handle_input()
+
+        art_id = self.player.rect.collidelist(self.artifacts)
+        if art_id != -1:
+            self.player.artifacts.append(self.artifacts[art_id])
+            del self.artifacts[art_id]
+
         if self.player.rect.collidelist(self.ladders) != -1:
             self.player.handle_ladders(dt)
         else:
@@ -93,10 +107,21 @@ class GameWorld:
         for plat in self.platforms:
             plat.draw(surface, cam)
         self.player.draw(surface, cam)
+        for artifact in self.artifacts:
+            artifact.draw(surface, cam, self.platforms)
         for ladder in self.ladders:
             ladder.draw(surface, cam)
+        for artifact in self.player.artifacts:
+            artifact.pos.x = 10 + self.player.artifacts.index(artifact) * 30
+            artifact.pos.y = 55
+            artifact.draw(surface, 0)
     
     def get_info_text(self):
         return (f"X: {int(self.player.pos.x)}   Y: {int(self.player.pos.y)}"
                 f"   cam: {int(self.camera_x)}   "
                 f"{'no chão' if self.player.on_ground else 'no ar'}")
+                    
+    def get_artifact_info(self):
+        if self.player.artifacts:
+            return "Artifacts: " + ", ".join([a.name for a in self.player.artifacts])
+        return "No artifacts collected"

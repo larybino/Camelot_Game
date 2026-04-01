@@ -2,16 +2,24 @@ from src.building.ladder import Ladder
 from src.entities.artifact import Artifact
 from src.building.platform import Platform
 from src.entities.player import Player
-from src.utils.config import SCREEN_W, WORLD_WIDTH, P_HEIGHT, P_WIDTH
+from src.utils.config import SCREEN_W, WORLD_WIDTH, P_HEIGHT
 
 
 class GameWorld:
     def __init__(self):
         self.platforms = self._build_platforms()
-        self.player    = self._build_player()
-        self.artifacts = self._build_artifacts()
         self.ladders   = self._build_ladders()
+        self.artifacts = self._build_artifacts()
+        self.player    = self._build_player()
         self.camera_x  = 0.0
+        self.player_spawn = self.player.pos.copy()
+        self.death_y = 465
+
+        self.active_objects = []
+        self.active_objects.extend(self.platforms)
+        self.active_objects.extend(self.ladders)
+        self.active_objects.extend(self.artifacts)
+        self.active_objects.append(self.player)
 
     def _build_platforms(self):
         platforms = []
@@ -79,47 +87,39 @@ class GameWorld:
         self.camera_x += (target - self.camera_x) * 0.15
         self.camera_x = max(0, min(self.camera_x, WORLD_WIDTH - SCREEN_W))
 
+    def handle_event(self, event):
+        for obj in self.active_objects:
+            if obj.active:
+                obj.handle_event(event, self)
+
+    def _collect_artifacts(self):
+        for artifact in self.artifacts[:]:
+            if self.player.rect.colliderect(artifact.rect):
+                self.player.artifacts.append(artifact)
+                artifact.active = False
+                self.artifacts.remove(artifact)
+                if artifact in self.active_objects:
+                    self.active_objects.remove(artifact)
+
     def update(self, dt):
-        self.player.handle_input()
+        for obj in self.active_objects:
+            if obj.active:
+                obj.update(dt, self)
 
-        art_id = self.player.rect.collidelist(self.artifacts)
-        if art_id != -1:
-            self.player.artifacts.append(self.artifacts[art_id])
-            del self.artifacts[art_id]
-
-        if self.player.rect.collidelist(self.ladders) != -1:
-            self.player.handle_ladders(dt)
-        else:
-            self.player.update(dt, self.platforms)
-
-        if self.player.pos.x < 0:
-            self.player.pos.x = 0
-        elif self.player.pos.x > WORLD_WIDTH - P_WIDTH:
-            self.player.pos.x = WORLD_WIDTH - P_WIDTH
-
-        if self.player.pos.y > 465:
-            self.player.pos.x = 60
-            self.player.pos.y = 320
+        self._collect_artifacts()
         self._update_camera()
 
     def draw(self, surface):
         cam = int(self.camera_x)
-        for plat in self.platforms:
-            plat.draw(surface, cam)
-        self.player.draw(surface, cam)
-        for artifact in self.artifacts:
-            artifact.draw(surface, cam, self.platforms)
-        for ladder in self.ladders:
-            ladder.draw(surface, cam)
-        for artifact in self.player.artifacts:
-            artifact.pos.x = 10 + self.player.artifacts.index(artifact) * 30
+        for obj in self.active_objects:
+            if obj.active:
+                obj.draw(surface, cam)
+
+        for i, artifact in enumerate(self.player.artifacts):
+            artifact.pos.x = 10 + i * 30
             artifact.pos.y = 55
             artifact.draw(surface, 0)
     
-    def get_info_text(self):
-        return (f"X: {int(self.player.pos.x)}   Y: {int(self.player.pos.y)}"
-                f"   cam: {int(self.camera_x)}   "
-                f"{'no chão' if self.player.on_ground else 'no ar'}")
                     
     def get_artifact_info(self):
         if self.player.artifacts:

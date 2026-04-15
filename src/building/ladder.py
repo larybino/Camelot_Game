@@ -6,9 +6,6 @@ class Ladder(GameObject):
     def __init__(self, x, y, width, height):
         super().__init__(x, y, width, height, BROWN)
 
-    def update(self, dt, world):
-        pass
-
     def draw(self, surface, camera_x=0):
         draw_rect = self.rect.move(-camera_x, 0)
 

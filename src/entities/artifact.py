@@ -5,14 +5,8 @@ from src.utils.config import (A_HEIGHT, A_WIDTH, CYAN, GOLD, P_WIDTH, SCREEN_H, 
 from src.world.game_object import GameObject
 
 class Artifact(GameObject):
-    def __init__(self, name, power, x=None, y=None):
-        spawn_x = random.randint(P_WIDTH, WORLD_WIDTH - P_WIDTH) if x is None else x
-        spawn_y = random.randint(SCREEN_H - GROUND_Y, 360) if y is None else y
-        super().__init__(
-            spawn_x,
-            spawn_y,
-            A_WIDTH, A_HEIGHT, CYAN)
-
+    def __init__(self, name, power, x, y):
+        super().__init__(x, y, A_WIDTH, A_HEIGHT, CYAN)
         self.name      = name
         self.power     = power
 

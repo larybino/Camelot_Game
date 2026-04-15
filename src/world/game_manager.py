@@ -1,5 +1,5 @@
 import pygame
-from pygame.locals import QUIT
+from pygame.locals import QUIT, KEYDOWN
 from src.utils.config import (SCREEN_W, SCREEN_H, FPS, BLACK, WHITE)
 from src.world.game_world import GameWorld
 
@@ -27,6 +27,9 @@ class GameManager:
 
     def _handle_events(self):
         for event in pygame.event.get():
+            if event.type == KEYDOWN and event.key == pygame.K_ESCAPE:
+                # self.stopped = not self.stopped
+                self.running = False
             if event.type == QUIT:
                 self.running = False
             elif self.game_world is not None:

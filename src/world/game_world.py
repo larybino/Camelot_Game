@@ -1,8 +1,10 @@
+import random
+
 from src.building.ladder import Ladder
 from src.entities.artifact import Artifact
 from src.building.platform import Platform
 from src.entities.player import Player
-from src.utils.config import SCREEN_W, WORLD_WIDTH, P_HEIGHT
+from src.utils.config import GROUND_Y, SCREEN_H, SCREEN_W, WORLD_WIDTH, P_HEIGHT, P_WIDTH
 
 
 class GameWorld:
@@ -16,8 +18,6 @@ class GameWorld:
         self.death_y = 465
 
         self.active_objects = []
-        self.active_objects.extend(self.platforms)
-        self.active_objects.extend(self.ladders)
         self.active_objects.extend(self.artifacts)
         self.active_objects.append(self.player)
 
@@ -34,41 +34,29 @@ class GameWorld:
             platforms.append(Platform(start_x, ground_y, width, 80))
 
         floating = [
-            (350,  340, 120),
-            (530,  280, 100),
-            (700,  320, 130),
-
-            (1000, 350, 110),
-            (1160, 290, 110),
-            (1320, 230, 110),
-
-            (1900, 310, 120),
-            (2020, 270,  80),
-            (2120, 310, 120),
-
-            (2400, 340, 130),
-            (2600, 280, 100),
-            (2800, 330, 140),
-
-            (3200, 300,  90),
-            (3370, 240,  90),
-            (3540, 300,  90),
-            (3720, 360, 110),
+            (*self.generate_random_positions(), 120),
+            (*self.generate_random_positions(), 100),
+            (*self.generate_random_positions(), 130),
+            (*self.generate_random_positions(), 110),
+            (*self.generate_random_positions(), 110),
+            (150, 256, 30),
+            (250, 56, 110),
         ]
         for x, y, w in floating:
-            platforms.append(Platform(x, y, w, 18))
+            platforms.append(Platform(x, y, w, 28))
 
         return platforms
     
     def _build_ladders(self):
         ladders = []
         ladder_positions = [
-            (1000, 200, 20, 100),
-            (1160, 190, 20, 100),
-            (1300, 230, 20, 100),
+            (500, 200),
+            (1000, 200),
+            (1160, 190),
+            (1300, 230),
         ]
-        for x, y, width, height in ladder_positions:
-            ladders.append(Ladder(x, y, width, height))
+        for x, y in ladder_positions:
+            ladders.append(Ladder(x, y, 20, 100))
 
         return ladders
 
@@ -78,8 +66,8 @@ class GameWorld:
     def _build_artifacts(self):
         return [
             Artifact("Excalibur", "power", 587, 240),
-            Artifact("Santo Graal", "healing"),
-            Artifact("Cajado de Merlim", "magic"),
+            Artifact("Santo Graal", "healing", *self.generate_random_positions()),
+            Artifact("Cajado de Merlim", "magic", *self.generate_random_positions()),
         ]
 
     def _update_camera(self):
@@ -102,15 +90,42 @@ class GameWorld:
                     self.active_objects.remove(artifact)
 
     def update(self, dt):
-        for obj in self.active_objects:
-            if obj.active:
-                obj.update(dt, self)
 
-        self._collect_artifacts()
-        self._update_camera()
+        art_id = self.player.rect.collidelist(self.artifacts)
+        if art_id != -1:
+            self.player.artifacts.append(self.artifacts[art_id])
+            del self.artifacts[art_id]
+
+        lad_id =  self.player.rect.collidelist(self.ladders)
+        if lad_id != -1:
+            self.player.handle_ladders(dt, self.ladders[lad_id])
+        else:
+            self.player.update(dt, self.platforms)
+
+        if self.player.pos.x < 0:
+            self.player.pos.x = 0
+        elif self.player.pos.x > WORLD_WIDTH - P_WIDTH:
+            self.player.pos.x = WORLD_WIDTH - P_WIDTH
+
+        if self.player.pos.y > 465:
+            self.player.pos.x = 60
+            self.player.pos.y = 320
+        self._update_camera()   
 
     def draw(self, surface):
         cam = int(self.camera_x)
+        for plat in self.platforms:
+            plat.draw(surface, cam)
+            if(plat.rect.top <= 305):
+                height = (plat.rect.top - 266) * -1
+                height = height if height > 50 else 50 
+                plat_lad = Ladder(plat.rect.left -20, plat.rect.top, 20, height)
+                plat_lad.draw(surface, cam)
+                self.ladders.append(plat_lad)
+        
+        for ladder in self.ladders:
+            ladder.draw(surface, cam)
+
         for obj in self.active_objects:
             if obj.active:
                 obj.draw(surface, cam)
@@ -125,3 +140,8 @@ class GameWorld:
         if self.player.artifacts:
             return "Artifacts: " + ", ".join([a.name for a in self.player.artifacts])
         return "No artifacts collected"
+
+    def generate_random_positions(self):
+        x = random.randint(P_WIDTH, WORLD_WIDTH - P_WIDTH)
+        y = random.randint(SCREEN_H - GROUND_Y , 360)
+        return x, y

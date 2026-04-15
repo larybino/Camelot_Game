@@ -1,4 +1,6 @@
 # entities/dynamic_object.py
+from abc import abstractmethod
+
 import pygame
 from .game_object import GameObject
 from src.utils.config import GRAVITY, WHITE
@@ -10,6 +12,15 @@ class DynamicObject(GameObject):
         super().__init__(x, y, width, height, color)
         self.vel       = pygame.Vector2(0, 0)
         self.on_ground = False
+
+
+    @abstractmethod
+    def update(self, dt, world):
+        pass
+
+    # @abstractmethod
+    # def update(self, dt: float, solids: list) -> None:
+        # pass
 
     def _apply_physics(self, dt: float, solids: list) -> None:
         self.vel.y += GRAVITY * dt
@@ -29,8 +40,7 @@ class DynamicObject(GameObject):
             if self.rect.colliderect(obj.rect):
                 if self.vel.y > 0:
                     self.pos.y = obj.rect.top - self.height
-                    self.vel.y = 0
                     self.on_ground = True
                 elif self.vel.y < 0:
                     self.pos.y = obj.rect.bottom
-                    self.vel.y = 0
+                self.vel.y = 0

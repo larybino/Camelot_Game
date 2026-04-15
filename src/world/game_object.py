@@ -14,10 +14,6 @@ class GameObject(ABC):
     def rect(self):
         return pygame.Rect(int(self.pos.x), int(self.pos.y), self.width, self.height)
 
-    @abstractmethod
-    def update(self, dt, world):
-        pass
-
     def handle_event(self, event, world):
         pass
 

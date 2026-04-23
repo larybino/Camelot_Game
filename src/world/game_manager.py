@@ -1,4 +1,5 @@
 import pygame
+from pathlib import Path
 from pygame.locals import QUIT, KEYDOWN
 from src.utils.config import (SCREEN_W, SCREEN_H, FPS, BLACK, WHITE)
 from src.world.game_world import GameWorld
@@ -12,6 +13,18 @@ class GameManager:
         self.font    = pygame.font.Font(None, 24)
         self.running = True
         self.game_world = None
+        self.background = self._load_background()
+
+    def _load_background(self):
+        bg_path = Path(__file__).resolve().parents[2] / "assets" / "Background.png"
+        if not bg_path.exists():
+            return None
+
+        try:
+            bg = pygame.image.load(str(bg_path)).convert()
+            return pygame.transform.scale(bg, (SCREEN_W, SCREEN_H))
+        except pygame.error:
+            return None
 
     def start(self):
         self.game_world = GameWorld()
@@ -39,7 +52,10 @@ class GameManager:
         self.game_world.update(dt)
 
     def _render(self):
-        self.screen.fill(BLACK)
+        if self.background is not None:
+            self.screen.blit(self.background, (0, 0))
+        else:
+            self.screen.fill(BLACK)
         self.game_world.draw(self.screen)
         artifact_text = self.game_world.get_artifact_info()
         artifact_surface = self.font.render(artifact_text, True, WHITE)

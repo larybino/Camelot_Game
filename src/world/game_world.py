@@ -138,7 +138,7 @@ class GameWorld:
                     
     def get_artifact_info(self):
         if self.player.artifacts:
-            return "Artifacts: " + ", ".join([a.name for a in self.player.artifacts])
+            return "Artifacts: "
         return "No artifacts collected"
 
     def generate_random_positions(self):

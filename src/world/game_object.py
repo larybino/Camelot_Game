@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from src.utils.config import WHITE
 
 class GameObject(ABC):
-    def __init__(self, x, y, width, height, color=WHITE):
-        self.pos = pygame.Vector2(x, y)
+    def __init__(self, pos, width, height, color=WHITE):
+        self.pos = pygame.Vector2(pos)
         self.width = width
         self.height = height
         self.color = color

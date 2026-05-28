@@ -11,9 +11,9 @@ class Platform(StaticObject):
     _body_tile = None
     _load_attempted = False
 
-    def __init__(self, x, y, width, height):
+    def __init__(self, pos, width, height):
         color = BROWN if height >= 40 else GREY
-        super().__init__(x, y, width, height, color, grass_color=GREEN)
+        super().__init__(pos, width, height, color, grass_color=GREEN)
 
     @classmethod
     def _load_tiles(cls):

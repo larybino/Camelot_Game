@@ -3,8 +3,8 @@ from src.utils.config import BROWN
 from src.world.game_object import GameObject
 
 class Ladder(GameObject):
-    def __init__(self, x, y, width, height):
-        super().__init__(x, y, width, height, BROWN)
+    def __init__(self, pos, width, height):
+        super().__init__(pos, width, height, BROWN)
 
     def draw(self, surface, camera_x=0):
         draw_rect = self.rect.move(-camera_x, 0)

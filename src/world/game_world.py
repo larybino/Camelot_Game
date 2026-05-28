@@ -1,9 +1,13 @@
 import random
 
+import pygame
+
 from src.building.ladder import Ladder
 from src.entities.artifact import Artifact
 from src.building.platform import Platform
 from src.entities.player import Player
+from src.entities.enemy import Enemy
+from src.world import collision
 from src.utils.config import GROUND_Y, SCREEN_H, SCREEN_W, WORLD_WIDTH, P_HEIGHT, P_WIDTH
 
 
@@ -16,10 +20,24 @@ class GameWorld:
         self.camera_x  = 0.0
         self.player_spawn = self.player.pos.copy()
         self.death_y = 465
+        self.game_over = False
 
         self.active_objects = []
         self.active_objects.extend(self.artifacts)
         self.active_objects.append(self.player)
+
+        self.enemies = self._spawn_enemies()
+        self.active_objects.extend(self.enemies)
+    def _spawn_enemies(self):
+        ground_y = 400 - P_HEIGHT
+        enemy_positions = [
+            (400, ground_y),
+            (900, ground_y),
+            (1600, ground_y),
+            (2500, ground_y),
+        ]
+        enemies = [Enemy(pygame.Vector2(x, y)) for x, y in enemy_positions]
+        return enemies
 
     def _build_platforms(self):
         platforms = []
@@ -31,7 +49,7 @@ class GameWorld:
             (4000, 2000),
         ]
         for start_x, width in ground_segments:
-            platforms.append(Platform(start_x, ground_y, width, 80))
+            platforms.append(Platform(pygame.Vector2(start_x, ground_y), width, 80))
 
         floating = [
             (*self.generate_random_positions(), 120),
@@ -43,7 +61,7 @@ class GameWorld:
             (250, 56, 110),
         ]
         for x, y, w in floating:
-            platforms.append(Platform(x, y, w, 28))
+            platforms.append(Platform(pygame.Vector2(x, y), w, 28))
 
         return platforms
     
@@ -56,18 +74,18 @@ class GameWorld:
             (1300, 230),
         ]
         for x, y in ladder_positions:
-            ladders.append(Ladder(x, y, 20, 100))
+            ladders.append(Ladder(pygame.Vector2(x, y), 20, 100))
 
         return ladders
 
     def _build_player(self):
-        return Player(60, 400 - P_HEIGHT)
+        return Player(pygame.Vector2(60, 400 - P_HEIGHT))
     
     def _build_artifacts(self):
         return [
-            Artifact("Excalibur", "power", 587, 240),
-            Artifact("Santo Graal", "healing", *self.generate_random_positions()),
-            Artifact("Cajado de Merlim", "magic", *self.generate_random_positions()),
+            Artifact("Excalibur", "power", pygame.Vector2(587, 240)),
+            Artifact("Santo Graal", "healing", pygame.Vector2(self.generate_random_positions())),
+            Artifact("Cajado de Merlim", "magic", pygame.Vector2(self.generate_random_positions())),
         ]
 
     def _update_camera(self):
@@ -81,35 +99,48 @@ class GameWorld:
                 obj.handle_event(event, self)
 
     def _collect_artifacts(self):
-        for artifact in self.artifacts[:]:
-            if self.player.rect.colliderect(artifact.rect):
-                self.player.artifacts.append(artifact)
-                artifact.active = False
-                self.artifacts.remove(artifact)
-                if artifact in self.active_objects:
-                    self.active_objects.remove(artifact)
+        collision.collect_artifacts(self.player, self.artifacts, self.active_objects)
 
     def update(self, dt):
+        if self.game_over:
+            self.player.update_common(dt)
+            self.player._update_animation(dt)
+            return
 
-        art_id = self.player.rect.collidelist(self.artifacts)
-        if art_id != -1:
-            self.player.artifacts.append(self.artifacts[art_id])
-            del self.artifacts[art_id]
+        for artifact in self.artifacts:
+            collision.snap_to_platform(artifact, self.platforms)
 
-        lad_id =  self.player.rect.collidelist(self.ladders)
+        collision.collect_artifacts(self.player, self.artifacts, self.active_objects)
+
+        lad_id = collision.get_ladder_hit(self.player, self.ladders)
+        self.player.handle_input()
+        self.player.update_common(dt)
         if lad_id != -1:
-            self.player.handle_ladders(dt, self.ladders[lad_id])
+            on_ladder = collision.handle_ladder(self.player, self.ladders[lad_id], dt, P_WIDTH * 0.9)
+            if not on_ladder:
+                collision.apply_gravity(self.player, dt)
+                collision.move_with_platforms(self.player, self.platforms, dt)
         else:
-            self.player.update(dt, self.platforms)
+            collision.apply_gravity(self.player, dt)
+            collision.move_with_platforms(self.player, self.platforms, dt)
+        self.player._update_animation(dt)
+
+        collision.apply_player_attack(self.player, self.enemies)
+
+        for enemy in self.enemies:
+            enemy.update(dt, self.platforms, self.player)
 
         if self.player.pos.x < 0:
             self.player.pos.x = 0
         elif self.player.pos.x > WORLD_WIDTH - P_WIDTH:
             self.player.pos.x = WORLD_WIDTH - P_WIDTH
 
-        if self.player.pos.y > 465:
-            self.player.pos.x = 60
-            self.player.pos.y = 320
+        if self.player.pos.y > self.death_y:
+            if self.player.take_damage(1, ignore_invuln=True):
+                if self.player.is_dead:
+                    self.game_over = True
+                else:
+                    self.player.respawn(self.player_spawn)
         self._update_camera()   
 
     def draw(self, surface):
@@ -119,7 +150,7 @@ class GameWorld:
             if(plat.rect.top <= 305):
                 height = (plat.rect.top - 266) * -1
                 height = height if height > 50 else 50 
-                plat_lad = Ladder(plat.rect.left -20, plat.rect.top, 20, height)
+                plat_lad = Ladder(pygame.Vector2(plat.rect.left -20, plat.rect.top), 20, height)
                 plat_lad.draw(surface, cam)
                 self.ladders.append(plat_lad)
         

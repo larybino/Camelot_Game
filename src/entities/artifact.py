@@ -13,8 +13,8 @@ class Artifact(GameObject):
         "Cajado de Merlim": "Item__20.png",
     }
 
-    def __init__(self, name, power, x, y):
-        super().__init__(x, y, A_WIDTH, A_HEIGHT, CYAN)
+    def __init__(self, name, power, pos):
+        super().__init__(pos, A_WIDTH, A_HEIGHT, CYAN)
         self.name      = name
         self.power     = power
 
@@ -41,12 +41,6 @@ class Artifact(GameObject):
         except pygame.error:
             cls._sprite_cache[name] = None
             return None
-
-    def update(self, dt, world):
-        plat_id = self.rect.collidelist(world.platforms)
-        if plat_id != -1:
-            self.pos.x = world.platforms[plat_id].rect.centerx - self.width
-            self.pos.y = world.platforms[plat_id].rect.top - self.height
 
     def draw(self, surface, camera_x=0):
         draw_rect = self.rect.move(-camera_x, 0)

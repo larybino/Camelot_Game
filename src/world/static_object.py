@@ -4,8 +4,8 @@ from .game_object import GameObject
 
 class StaticObject(GameObject):
 
-    def __init__(self, x, y, width, height, color, grass_color=None):
-        super().__init__(x, y, width, height, color)
+    def __init__(self, pos, width, height, color, grass_color=None):
+        super().__init__(pos, width, height, color)
         self.grass_color = grass_color
 
     def draw(self, surface, camera_x) -> None:

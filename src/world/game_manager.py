@@ -1,7 +1,7 @@
 import pygame
 from pathlib import Path
 from pygame.locals import QUIT, KEYDOWN
-from src.utils.config import (SCREEN_W, SCREEN_H, FPS, BLACK, WHITE)
+from src.utils.config import (SCREEN_W, SCREEN_H, FPS, BLACK, WHITE, RED)
 from src.world.game_world import GameWorld
 
 class GameManager:
@@ -14,6 +14,7 @@ class GameManager:
         self.running = True
         self.game_world = None
         self.background = self._load_background()
+        self.heart_sprite = self._load_heart_sprite()
 
     def _load_background(self):
         bg_path = Path(__file__).resolve().parents[2] / "assets" / "Background.png"
@@ -23,6 +24,17 @@ class GameManager:
         try:
             bg = pygame.image.load(str(bg_path)).convert()
             return pygame.transform.scale(bg, (SCREEN_W, SCREEN_H))
+        except pygame.error:
+            return None
+
+    def _load_heart_sprite(self):
+        heart_path = Path(__file__).resolve().parents[2] / "assets" / "sprites" / "heart.png"
+        if not heart_path.exists():
+            return None
+
+        try:
+            heart = pygame.image.load(str(heart_path)).convert_alpha()
+            return pygame.transform.scale(heart, (16, 16))
         except pygame.error:
             return None
 
@@ -57,9 +69,26 @@ class GameManager:
         else:
             self.screen.fill(BLACK)
         self.game_world.draw(self.screen)
+
+        if self.game_world is not None and self.game_world.player is not None:
+            for i in range(self.game_world.player.lives):
+                x = 10 + i * 20
+                y = 6
+                if self.heart_sprite is not None:
+                    self.screen.blit(self.heart_sprite, (x, y))
+                else:
+                    pygame.draw.circle(self.screen, RED, (x + 6, y + 6), 6)
+                    pygame.draw.circle(self.screen, WHITE, (x + 6, y + 6), 6, 1)
+
         artifact_text = self.game_world.get_artifact_info()
         artifact_surface = self.font.render(artifact_text, True, WHITE)
         self.screen.blit(artifact_surface, (10, 30))
+
+        if self.game_world is not None and self.game_world.game_over:
+            message = "GAME OVER"
+            text_surface = self.font.render(message, True, WHITE)
+            text_rect = text_surface.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2))
+            self.screen.blit(text_surface, text_rect)
         pygame.display.flip()
 
     def quit(self):

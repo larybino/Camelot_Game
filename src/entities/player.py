@@ -1,34 +1,51 @@
 import pygame
 from pathlib import Path
 from pygame.locals import *
-from src.utils.config import (PLAYER_SPEED, JUMP_SPEED, WHITE, RED, P_WIDTH, P_HEIGHT, WORLD_WIDTH, GRAVITY, DRAW_WIDTH, DRAW_HEIGHT, DRAW_Y_OFFSET, FOOT_ALIGN_BONUS)
-from src.world.dynamic_object import DynamicObject
+from src.utils.config import (
+    PLAYER_SPEED,
+    JUMP_SPEED,
+    RED,
+    P_WIDTH,
+    P_HEIGHT,
+)
+from src.entities.character import Character
 
 
-class Player(DynamicObject):
+class Player(Character):
     ANIM_FPS = {
         "idle": 8,
         "run": 12,
         "jump": 10,
+        "attack": 12,
+        "hurt": 10,
+        "death": 8,
     }
     _assets_loaded = False
     _frames = {
         "idle": [],
         "run": [],
         "jump": [],
+        "attack": [],
+        "hurt": [],
+        "death": [],
     }
 
-    def __init__(self, x, y):
-        super().__init__(x, y, P_WIDTH, P_HEIGHT, RED)
+    def __init__(self, pos):
+        super().__init__(
+            pos,
+            P_WIDTH,
+            P_HEIGHT,
+            RED,
+            max_lives=3,
+            invuln_duration=0.8,
+            attack_interval=0.45,
+            attack_range_x=50,
+            attack_range_y=40,
+        )
         self.on_ground = True
-        self.alive     = True
-        self.artifacts  = []
-        self.move_input = False
-        self.facing_right = True
-        self.anim_state = "idle"
-        self.anim_time = 0.0
-        self.anim_index = 0
-        self.current_frame = None
+        self.artifacts = []
+        self.hurt_timer = 0.0
+        self.hurt_duration = 0.15
 
         self._load_assets()
         self._update_animation(0.0)
@@ -42,9 +59,12 @@ class Player(DynamicObject):
         sprite_dir = project_root / "assets" / "sprites" / "with_outline"
 
         sprite_map = {
-            "idle": ("IDLE.png", 84),
-            "run": ("RUN.png", 96),
-            "jump": ("JUMP.png", 96),
+            "idle":   ("IDLE.png",     84),
+            "run":    ("RUN.png",      96),
+            "jump":   ("JUMP.png",     96),
+            "attack": ("ATTACK 1.png", 96),
+            "hurt":   ("HURT.png",     96),
+            "death":  ("DEATH.png",    96),
         }
 
         for state, (file_name, frame_width) in sprite_map.items():
@@ -52,16 +72,16 @@ class Player(DynamicObject):
             if not file_path.exists():
                 cls._frames[state] = []
                 continue
-
             try:
                 sheet = pygame.image.load(str(file_path)).convert_alpha()
                 frame_height = sheet.get_height()
                 frame_count = sheet.get_width() // frame_width
-                frames = []
-                for i in range(frame_count):
-                    frame = sheet.subsurface(pygame.Rect(i * frame_width, 0, frame_width, frame_height)).copy()
-                    frames.append(frame)
-                cls._frames[state] = frames
+                cls._frames[state] = [
+                    sheet.subsurface(
+                        pygame.Rect(i * frame_width, 0, frame_width, frame_height)
+                    ).copy()
+                    for i in range(frame_count)
+                ]
             except pygame.error:
                 cls._frames[state] = []
 
@@ -72,10 +92,21 @@ class Player(DynamicObject):
             self.facing_right = self.vel.x > 0
 
         prev_state = self.anim_state
-        if not self.on_ground:
+
+        if self.is_dead:
+            self.anim_state = "death"
+        elif self.hurt_timer > 0:
+            self.anim_state = "hurt"
+        elif self.attack_timer > 0:
+            self.anim_state = "attack"
+        elif not self.on_ground:
             self.anim_state = "jump"
         elif self.move_input and abs(self.vel.x) > 1:
             self.anim_state = "run"
+        elif self.anim_state == "attack":
+            death_frames = self._frames.get("attack", [])
+            if death_frames and self.anim_index == len(death_frames) - 1:
+                self.anim_state = "idle"
         else:
             self.anim_state = "idle"
 
@@ -84,10 +115,14 @@ class Player(DynamicObject):
             self.current_frame = None
             return
 
-        if self.anim_state == "idle":
+        if self.anim_state in ("idle", "jump"):
             self.anim_time = 0.0
             self.anim_index = 0
             self.current_frame = frames[0]
+            return
+
+        if self.anim_state == "death" and self.anim_index == len(frames) - 1:
+            self.current_frame = frames[self.anim_index]
             return
 
         if self.anim_state != prev_state:
@@ -102,9 +137,14 @@ class Player(DynamicObject):
 
         self.current_frame = frames[self.anim_index]
 
+   
     def handle_input(self):
+        if self.is_dead:
+            self.vel.x = 0
+            return
+
         keys = pygame.key.get_pressed()
-        left_pressed = keys[K_LEFT] or keys[K_a]
+        left_pressed  = keys[K_LEFT] or keys[K_a]
         right_pressed = keys[K_RIGHT] or keys[K_d]
         self.move_input = left_pressed or right_pressed
 
@@ -116,71 +156,47 @@ class Player(DynamicObject):
         if (keys[K_UP] or keys[K_w] or keys[K_SPACE]) and self.on_ground:
             self.vel.y = JUMP_SPEED
             self.on_ground = False
-        if(keys[K_RCTRL] or keys[K_LCTRL]):
+        if keys[K_RCTRL] or keys[K_LCTRL]:
             self.vel.x *= 2
- 
+        if keys[K_k] and self.attack_cooldown == 0.0:
+            self._start_attack()
+
+  
     def update(self, dt, platforms):
         self.handle_input()
-
-        self.vel.y += GRAVITY * dt
- 
-        self.pos.x += self.vel.x * dt
-        plat_id = self.rect.collidelist(platforms)
-        if plat_id != -1:
-            if self.vel.x > 0:                          
-                self.pos.x = platforms[plat_id].rect.left - self.width
-            elif self.vel.x < 0:                        
-                self.pos.x = platforms[plat_id].rect.right
-            self.vel.x = 0
- 
-        self.pos.y += self.vel.y * dt
-        plat_id = self.rect.collidelist(platforms)
-        if plat_id != -1:
-            if self.vel.y > 0:                         
-                self.pos.y = platforms[plat_id].rect.top - self.height
-                self.on_ground = True
-            elif self.vel.y < 0:                       
-                self.pos.y = platforms[plat_id].rect.bottom
-            self.vel.y = 0
-
+        self.update_common(dt)
         self._update_animation(dt)
 
-    def handle_ladders(self, dt, ladder):
-        if self.rect.centerx > ladder.rect.centerx and self.rect.bottom - 14 > ladder.rect.top :
-            self.pos.x = ladder.rect.left - P_WIDTH + 10
+    def update_common(self, dt):
+        super().update_common(dt)
+        if self.hurt_timer > 0:
+            self.hurt_timer = max(0.0, self.hurt_timer - dt)
 
+  
+    def take_damage(self, amount=1, ignore_invuln=False):
+        damaged = super().take_damage(amount, ignore_invuln=ignore_invuln)
+        if damaged and not self.is_dead:
+            if self.lives == 0:
+                self.is_dead = True
+                self.active = False
+                self.anim_state = "death"
+                self.anim_time = 0.0
+                self.anim_index = 0
+                self.vel.x = 0
+                self.vel.y = 0
+            else:
+                self.hurt_timer = self.hurt_duration
+                self.anim_state = "hurt"
+                self.anim_time = 0.0
+                self.anim_index = 0
+        return damaged
+
+   
+    def respawn(self, spawn_pos):
+        self.pos.x = spawn_pos.x
+        self.pos.y = spawn_pos.y
         self.vel.x = 0
         self.vel.y = 0
-        self.on_ground = True
-        self.move_input = False
-        keys = pygame.key.get_pressed()
-        climb_speed = PLAYER_SPEED * 0.5
-        if keys[K_UP] or keys[K_w] or keys[K_SPACE] or keys[K_RIGHT] or keys[K_d]:
-            self.pos.y -= climb_speed * dt
-        elif keys[K_DOWN] or keys[K_s] or keys[K_LEFT] or keys[K_a]:
-            self.pos.y += PLAYER_SPEED * dt // 2
-
-        self._update_animation(dt)
- 
-    def draw(self, surface, camera_x):
-        draw_x, draw_y = int(self.pos.x) - camera_x, int(self.pos.y)
-        if self.current_frame is None:
-            pygame.draw.ellipse(surface, self.color,
-                                (draw_x, draw_y, self.width, self.height))
-            pygame.draw.ellipse(surface, WHITE,
-                                (draw_x, draw_y, self.width, self.height), 2)
-            return
-
-        frame = self.current_frame
-        if not self.facing_right:
-            frame = pygame.transform.flip(frame, True, False)
-
-        bounds = frame.get_bounding_rect(min_alpha=1)
-        bottom_padding = max(0, frame.get_height() - bounds.bottom)
-        scale_y = DRAW_HEIGHT / frame.get_height()
-        feet_correction = int(bottom_padding * scale_y)
-
-        sprite = pygame.transform.scale(frame, (DRAW_WIDTH, DRAW_HEIGHT))
-        sprite_x = draw_x + (self.width - DRAW_WIDTH) // 2
-        sprite_y = draw_y + (self.height - DRAW_HEIGHT) + DRAW_Y_OFFSET + feet_correction + FOOT_ALIGN_BONUS
-        surface.blit(sprite, (sprite_x, sprite_y))
+        self.on_ground = False
+        self.is_dead = False
+        self.active = True

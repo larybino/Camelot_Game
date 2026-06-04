@@ -26,6 +26,8 @@ class Character(DynamicObject):
         attack_interval=0.45,
         attack_range_x=50,
         attack_range_y=40,
+        draw_width=None,
+        draw_height=None,
     ):
         super().__init__(pos, width, height, color)
         self.health = Health(max_lives=max_lives, invuln_duration=invuln_duration)
@@ -43,6 +45,8 @@ class Character(DynamicObject):
         self.move_input = False
         self.is_dead = False
         self.active = True
+        self.draw_width  = draw_width  or DRAW_WIDTH
+        self.draw_height = draw_height or DRAW_HEIGHT
 
     
     @classmethod
@@ -126,11 +130,11 @@ class Character(DynamicObject):
 
         bounds = frame.get_bounding_rect(min_alpha=1)
         bottom_padding = max(0, frame.get_height() - bounds.bottom)
-        scale_y = DRAW_HEIGHT / frame.get_height()
+        scale_y = self.draw_height / frame.get_height()
         feet_correction = int(bottom_padding * scale_y)
 
-        sprite = pygame.transform.scale(frame, (DRAW_WIDTH, DRAW_HEIGHT))
-        sprite_x = draw_x + (self.width - DRAW_WIDTH) // 2
-        sprite_y = (draw_y + (self.height - DRAW_HEIGHT)
+        sprite = pygame.transform.scale(frame, (self.draw_width, self.draw_height))
+        sprite_x = draw_x + (self.width - self.draw_width) // 2
+        sprite_y = (draw_y + (self.height - self.draw_height)
                     + DRAW_Y_OFFSET + feet_correction + FOOT_ALIGN_BONUS)
         surface.blit(sprite, (sprite_x, sprite_y))

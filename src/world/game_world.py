@@ -6,7 +6,8 @@ from src.building.ladder import Ladder
 from src.entities.artifact import Artifact
 from src.building.platform import Platform
 from src.entities.player import Player
-from src.entities.enemy import Enemy
+from src.entities.witch import Witch
+from src.entities.little_enemy import LittleEnemy
 from src.world import collision
 from src.utils.config import GROUND_Y, SCREEN_H, SCREEN_W, WORLD_WIDTH, P_HEIGHT, P_WIDTH
 
@@ -30,13 +31,12 @@ class GameWorld:
         self.active_objects.extend(self.enemies)
     def _spawn_enemies(self):
         ground_y = 400 - P_HEIGHT
-        enemy_positions = [
-            (400, ground_y),
-            (900, ground_y),
-            (1600, ground_y),
-            (2500, ground_y),
+        enemies = [
+        Witch(pygame.Vector2(400, ground_y)),
+        LittleEnemy(pygame.Vector2(900, ground_y)),
+        Witch(pygame.Vector2(1600, ground_y)),
+        LittleEnemy(pygame.Vector2(2500, ground_y)),
         ]
-        enemies = [Enemy(pygame.Vector2(x, y)) for x, y in enemy_positions]
         return enemies
 
     def _build_platforms(self):

@@ -1,7 +1,12 @@
 import pygame
 from pathlib import Path
 from pygame.locals import *
+from src.entities.animation import Animation
+from src.entities.sprite_manager import SpriteManager
+from src.entities.sprite import Sprite
 from src.utils.config import (
+    DRAW_HEIGHT,
+    DRAW_WIDTH,
     PLAYER_SPEED,
     JUMP_SPEED,
     RED,
@@ -13,23 +18,8 @@ from src.entities.character import Character
 
 
 class Player(Character):
-    ANIM_FPS = {
-        "idle": 8,
-        "run": 12,
-        "jump": 10,
-        "attack": 12,
-        "hurt": 10,
-        "death": 8,
-    }
-    _assets_loaded = False
-    _frames = {
-        "idle": [],
-        "run": [],
-        "jump": [],
-        "attack": [],
-        "hurt": [],
-        "death": [],
-    }
+    
+    _frames_cache: dict[str, list[pygame.Surface]] | None = None
 
     def __init__(self, pos):
         super().__init__(
@@ -48,97 +38,59 @@ class Player(Character):
         self.hurt_timer = 0.0
         self.hurt_duration = 0.15
 
-        self._load_assets()
-        self._update_animation(0.0)
-
-    @classmethod
-    def _load_assets(cls):
-        if cls._assets_loaded:
-            return
-
-        project_root = Path(__file__).resolve().parents[2]
-        sprite_dir = project_root / "assets" / "sprites" / "with_outline"
-
-        sprite_map = {
-            "idle":   ("IDLE.png",     84),
-            "run":    ("RUN.png",      96),
-            "jump":   ("JUMP.png",     96),
-            "attack": ("ATTACK 1.png", 96),
-            "hurt":   ("HURT.png",     96),
-            "death":  ("DEATH.png",    96),
-        }
-
-        for state, (file_name, frame_width) in sprite_map.items():
-            file_path = sprite_dir / file_name
-            if not file_path.exists():
-                cls._frames[state] = []
-                continue
-            try:
-                sheet = pygame.image.load(str(file_path)).convert_alpha()
-                frame_height = sheet.get_height()
-                frame_count = sheet.get_width() // frame_width
-                cls._frames[state] = [
-                    sheet.subsurface(
-                        pygame.Rect(i * frame_width, 0, frame_width, frame_height)
-                    ).copy()
-                    for i in range(frame_count)
-                ]
-            except pygame.error:
-                cls._frames[state] = []
-
-        cls._assets_loaded = True
-
-    def _update_animation(self, dt):
-        if abs(self.vel.x) > 1:
-            self.facing_right = self.vel.x > 0
-
-        prev_state = self.anim_state
-
-        if not self.is_alive:
-            self.anim_state = "death"
-        elif self.hurt_timer > 0:
-            self.anim_state = "hurt"
-        elif self.attack_timer > 0:
-            self.anim_state = "attack"
-        elif not self.on_ground:
-            self.anim_state = "jump"
-        elif self.move_input and abs(self.vel.x) > 1:
-            self.anim_state = "run"
-        elif self.anim_state == "attack":
-            death_frames = self._frames.get("attack", [])
-            if death_frames and self.anim_index == len(death_frames) - 1:
-                self.anim_state = "idle"
-        else:
-            self.anim_state = "idle"
-
-        frames = self._frames.get(self.anim_state, [])
-        if not frames:
-            self.current_frame = None
-            return
-
-        if self.anim_state in ("idle", "jump"):
-            self.anim_time = 0.0
-            self.anim_index = 0
-            self.current_frame = frames[0]
-            return
-
-        if self.anim_state == "death" and self.anim_index == len(frames) - 1:
-            self.current_frame = frames[self.anim_index]
-            return
-
-        if self.anim_state != prev_state:
-            self.anim_time = 0.0
-            self.anim_index = 0
-        else:
-            self.anim_time += dt
-            step = 1.0 / self.ANIM_FPS[self.anim_state]
-            while self.anim_time >= step:
-                self.anim_time -= step
-                self.anim_index = (self.anim_index + 1) % len(frames)
-
-        self.current_frame = frames[self.anim_index]
+        self._load_animations()
+        if self.sprite:
+            self.sprite.set_animation("idle")
 
    
+    def _load_animations(self):
+        if Player._frames_cache is None:
+            root = Path(__file__).resolve().parents[2]
+            d = root / "assets" / "sprites" / "with_outline"
+            Player._frames_cache = {
+                "idle":   SpriteManager.load_strip(d / "IDLE.png",     84),
+                "run":    SpriteManager.load_strip(d / "RUN.png",      96),
+                "jump":   SpriteManager.load_strip(d / "JUMP.png",     96),
+                "attack": SpriteManager.load_strip(d / "ATTACK 1.png", 96),
+                "hurt":   SpriteManager.load_strip(d / "HURT.png",     96),
+                "death":  SpriteManager.load_strip(d / "DEATH.png",    96),
+            }
+ 
+        f = Player._frames_cache
+        self.sprite = Sprite(
+            animations={
+                "idle":   Animation(f["idle"],   fps=8),
+                "run":    Animation(f["run"],    fps=12),
+                "jump":   Animation(f["jump"],   fps=10, loop=False),
+                "attack": Animation(f["attack"], fps=12, loop=False),
+                "hurt":   Animation(f["hurt"],   fps=10, loop=False),
+                "death":  Animation(f["death"],  fps=8,  loop=False),
+            },
+            draw_width=DRAW_WIDTH,
+            draw_height=DRAW_HEIGHT,
+        )
+ 
+ 
+    def _logic_state_machine(self):
+        if not self.sprite:
+            return
+ 
+        if not self.is_alive:
+            self.sprite.set_animation("death")
+        elif self.hurt_timer > 0:
+            self.sprite.set_animation("hurt")
+        elif self.attack_timer > 0:
+            self.sprite.set_animation("attack")
+        elif not self.on_ground:
+            self.sprite.set_animation("jump")
+        elif self.move_input and abs(self.vel.x) > 1:
+            self.sprite.set_animation("run")
+        else:
+            current = self.sprite.current_animation
+            if current is None or current.is_finished or \
+               self.sprite._current_key not in ("attack", "hurt", "death"):
+                self.sprite.set_animation("idle")
+    
     def handle_input(self):
         if not self.is_alive:
             self.vel.x = 0
@@ -166,7 +118,11 @@ class Player(Character):
     def update(self, dt):
         self.handle_input()
         self.update_common(dt)
+        self._logic_state_machine()
         self._update_animation(dt)
+
+        if abs(self.vel.x) > 1:
+            self.facing_right = self.vel.x > 0
 
     def update_common(self, dt):
         super().update_common(dt)
@@ -180,16 +136,10 @@ class Player(Character):
             if self.lives == 0:
                 self.is_alive = False
                 self.active = False
-                self.anim_state = "death"
-                self.anim_time = 0.0
-                self.anim_index = 0
                 self.vel.x = 0
                 self.vel.y = 0
             else:
                 self.hurt_timer = self.hurt_duration
-                self.anim_state = "hurt"
-                self.anim_time = 0.0
-                self.anim_index = 0
         return damaged
 
 
@@ -201,4 +151,5 @@ class Player(Character):
         self.on_ground = False
         self.is_alive = True
         self.active = True
-    
+        if self.sprite:
+            self.sprite.set_animation("idle")

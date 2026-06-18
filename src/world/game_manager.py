@@ -7,6 +7,7 @@ from src.world.game_world import GameWorld
 class GameManager:
     def __init__(self):
         pygame.init()
+        pygame.mixer.init()
         self.screen  = pygame.display.set_mode([SCREEN_W, SCREEN_H])
         pygame.display.set_caption('Camelot')
         self.clock   = pygame.time.Clock()
@@ -17,6 +18,12 @@ class GameManager:
         self.heart_sprite = self._load_heart_sprite()
         self.retry_button = pygame.Rect(SCREEN_W // 2 - 175, SCREEN_H // 2 + 40, 170, 40)
         self.exit_button = pygame.Rect(SCREEN_W // 2 + 15, SCREEN_H // 2 + 40, 120, 40 )
+
+        music_path = Path(__file__).resolve().parents[2] / "assets" / "sprites" / "music" / "Flight_from_the_keep.mp3"
+        if music_path.exists():
+            pygame.mixer.music.load(str(music_path))
+            pygame.mixer.music.set_volume(0.5)
+            pygame.mixer.music.play(-1)
 
     def _load_background(self):
         bg_path = Path(__file__).resolve().parents[2] / "assets" / "Background.png"

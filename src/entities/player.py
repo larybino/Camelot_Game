@@ -7,6 +7,7 @@ from src.utils.config import (
     RED,
     P_WIDTH,
     P_HEIGHT,
+    GRAVITY
 )
 from src.entities.character import Character
 
@@ -93,7 +94,7 @@ class Player(Character):
 
         prev_state = self.anim_state
 
-        if self.is_dead:
+        if not self.is_alive:
             self.anim_state = "death"
         elif self.hurt_timer > 0:
             self.anim_state = "hurt"
@@ -139,7 +140,7 @@ class Player(Character):
 
    
     def handle_input(self):
-        if self.is_dead:
+        if not self.is_alive:
             self.vel.x = 0
             return
 
@@ -162,7 +163,7 @@ class Player(Character):
             self._start_attack()
 
   
-    def update(self, dt, platforms):
+    def update(self, dt):
         self.handle_input()
         self.update_common(dt)
         self._update_animation(dt)
@@ -175,9 +176,9 @@ class Player(Character):
   
     def take_damage(self, amount=1, ignore_invuln=False):
         damaged = super().take_damage(amount, ignore_invuln=ignore_invuln)
-        if damaged and not self.is_dead:
+        if damaged and self.is_alive:
             if self.lives == 0:
-                self.is_dead = True
+                self.is_alive = False
                 self.active = False
                 self.anim_state = "death"
                 self.anim_time = 0.0
@@ -191,12 +192,13 @@ class Player(Character):
                 self.anim_index = 0
         return damaged
 
-   
+
     def respawn(self, spawn_pos):
         self.pos.x = spawn_pos.x
         self.pos.y = spawn_pos.y
         self.vel.x = 0
         self.vel.y = 0
         self.on_ground = False
-        self.is_dead = False
+        self.is_alive = True
         self.active = True
+    

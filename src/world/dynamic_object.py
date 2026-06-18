@@ -19,10 +19,6 @@ class DynamicObject(GameObject):
     def update(self, dt, world):
         pass
 
-    # @abstractmethod
-    # def update(self, dt: float, solids: list) -> None:
-        # pass
-
     def _apply_physics(self, dt: float, solids: list) -> None:
         collision.apply_gravity(self, dt)
         collision.move_with_platforms(self, solids, dt)

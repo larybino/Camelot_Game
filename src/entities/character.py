@@ -43,7 +43,7 @@ class Character(DynamicObject):
         self.attack_range_x = attack_range_x
         self.attack_range_y = attack_range_y
         self.move_input = False
-        self.is_dead = False
+        self.is_alive = True
         self.active = True
         self.draw_width  = draw_width  or DRAW_WIDTH
         self.draw_height = draw_height or DRAW_HEIGHT

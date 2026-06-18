@@ -46,16 +46,16 @@ class Witch(Enemy):
         cls._assets_loaded = True
 
     def _on_update(self, dt, player):
-        if self.move_input:
-            self.vel.x = PLAYER_SPEED * (1 if self.facing_right else -1)
-        else:
-            self.vel.x = 0
-
         if (
             player
             and abs(self.pos.x - player.pos.x) < self.attack_range_x
             and abs(self.pos.y - player.pos.y) < self.attack_range_y
             and self.attack_cooldown == 0.0
+            # and self.anim_state != "attack"
         ):
             self._start_attack()
             self._deal_damage(player)
+            # classe sprite, responsável por render sprite
+            # vai ter uma ref pra textura na memória
+            #  uma animação é um vetor de cada sprite, ai vai ter o vetor que ta á sprite  evc condfigura quanto trempo vai ficar cada sprite
+            # pro render passa o dt que passou pra animação

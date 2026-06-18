@@ -1,7 +1,8 @@
 import pygame
 
-from src.utils.config import GRAVITY
-
+from src.utils.config import GRAVITY, PLAYER_SPEED
+from pygame.locals import *
+    
 
 def apply_gravity(entity, dt, gravity=GRAVITY):
     entity.vel.y += gravity * dt
@@ -48,7 +49,7 @@ def _snap_to_ground(entity, platforms, tolerance=2):
             return
 
 
-def handle_ladder(player, ladder, dt, climb_speed):
+def handle_ladder(player, platforms, dt, climb_speed):
     keys = pygame.key.get_pressed()
     up_pressed = keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]
     down_pressed = keys[pygame.K_DOWN] or keys[pygame.K_s]
@@ -58,23 +59,33 @@ def handle_ladder(player, ladder, dt, climb_speed):
     if not up_pressed and not down_pressed:
         return False
 
-    if player.rect.centerx > ladder.rect.centerx and player.rect.bottom - 14 > ladder.rect.top:
-        player.pos.x = ladder.rect.left - player.width + 10
-
     player.vel.x = 0
     player.vel.y = 0
     player.on_ground = True
     player.move_input = False
 
-    if up_pressed:
-        player.pos.y -= climb_speed * dt
-    elif down_pressed:
-        player.pos.y += climb_speed * dt
-
     if left_pressed:
         player.pos.x -= climb_speed * dt
     elif right_pressed:
         player.pos.x += climb_speed * dt
+    hit = player.rect.collidelist(platforms)
+    if hit != -1:
+        if right_pressed:
+            player.pos.x = platforms[hit].rect.left - player.width
+        elif left_pressed:
+            player.pos.x = platforms[hit].rect.right
+
+    if up_pressed:
+        player.pos.y -= climb_speed * dt
+    elif down_pressed:
+        player.pos.y += climb_speed * dt
+    hit = player.rect.collidelist(platforms)
+    if hit != -1:
+        if down_pressed:
+            player.pos.y = platforms[hit].rect.top - player.height
+            player.on_ground = True
+        elif up_pressed:
+            player.pos.y = platforms[hit].rect.bottom
 
     return True
 
@@ -113,3 +124,49 @@ def apply_player_attack(player, enemies):
 
 def get_ladder_hit(player, ladders):
     return player.rect.collidelist(ladders)
+
+def handle_lake(player, lake, dt):
+    keys = pygame.key.get_pressed()
+ 
+    player.vel.x = 0
+    move_speed = PLAYER_SPEED * 0.30
+    if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+        player.vel.x = -move_speed
+    if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+        player.vel.x = move_speed
+ 
+    gravity_scale = 1.3
+    player.vel.y += GRAVITY * gravity_scale * dt
+
+    if (keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]):
+        player.vel.y -= GRAVITY * 1.31 * dt
+ 
+    max_rise = -PLAYER_SPEED * 1.6
+    max_fall = PLAYER_SPEED * 2.7
+    player.vel.y = max(max_rise, min(player.vel.y, max_fall))
+ 
+    player.pos.x += player.vel.x * dt
+    current_step = lake.get_stair_index(player.rect.centerx)
+    if(current_step is not None and current_step <= 1) or current_step is None:
+        player.pos.y += player.vel.y * dt
+ 
+    stair_support_y = lake.get_stair_support_y_for_rect(player.rect)
+ 
+    if stair_support_y is None and player.pos.y - 1 < lake.rect.top:
+        if player.vel.y < 0:
+            player.vel.y = 30
+ 
+    player.on_ground = False
+ 
+    if stair_support_y is not None:
+        snap_margin = max(4, lake.get_step_height())
+        if player.rect.bottom >= stair_support_y - snap_margin:
+            player.pos.y = stair_support_y - player.height
+            if player.vel.y > 0:
+                player.vel.y = 0
+            player.on_ground = True
+ 
+    if player.rect.bottom >= lake.rect.bottom:
+        player.pos.y = lake.rect.bottom - player.height
+        player.vel.y = 0
+        player.on_ground = False

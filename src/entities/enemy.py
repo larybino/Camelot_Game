@@ -38,7 +38,7 @@ class Enemy(Character):
 
 
     def _update_animation(self, dt):
-        if self.is_dead:
+        if not self.is_alive:
             new_state = "death"
         elif self.attack_timer > 0:
             new_state = "attack"
@@ -66,7 +66,7 @@ class Enemy(Character):
 
    
     def update(self, dt, platforms, player=None):
-        if self.is_dead:
+        if not self.is_alive:
             self.death_timer -= dt
             if self.death_timer <= 0.0:
                 self.active = False
@@ -103,7 +103,7 @@ class Enemy(Character):
     def take_damage(self, amount=1, ignore_invuln=False):
         if super().take_damage(amount, ignore_invuln=True):
             if self.lives == 0:
-                self.is_dead = True
+                self.is_alive = False
                 self.death_timer = self.DEATH_LINGER
                 self.vel.x = 0
                 self.vel.y = 0

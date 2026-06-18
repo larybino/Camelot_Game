@@ -15,6 +15,8 @@ class GameManager:
         self.game_world = None
         self.background = self._load_background()
         self.heart_sprite = self._load_heart_sprite()
+        self.retry_button = pygame.Rect(SCREEN_W // 2 - 175, SCREEN_H // 2 + 40, 170, 40)
+        self.exit_button = pygame.Rect(SCREEN_W // 2 + 15, SCREEN_H // 2 + 40, 120, 40 )
 
     def _load_background(self):
         bg_path = Path(__file__).resolve().parents[2] / "assets" / "Background.png"
@@ -52,11 +54,26 @@ class GameManager:
 
     def _handle_events(self):
         for event in pygame.event.get():
-            if event.type == KEYDOWN and event.key == pygame.K_ESCAPE:
-                # self.stopped = not self.stopped
-                self.running = False
+            if event.type == KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.running = False
+                if event.key == pygame.K_m:
+                    self.game_world.debug = not self.game_world.debug
             if event.type == QUIT:
                 self.running = False
+
+            if (
+                self.game_world is not None
+                and self.game_world.game_over
+                and event.type == pygame.MOUSEBUTTONDOWN
+                and event.button == 1
+            ):
+                if self.retry_button.collidepoint(event.pos):
+                    self.game_world = GameWorld()
+
+                elif self.exit_button.collidepoint(event.pos):
+                    self.running = False
+
             elif self.game_world is not None:
                 self.game_world.handle_event(event)
 
@@ -85,10 +102,31 @@ class GameManager:
         self.screen.blit(artifact_surface, (10, 30))
 
         if self.game_world is not None and self.game_world.game_over:
+
+            overlay = pygame.Surface((SCREEN_W, SCREEN_H))
+            overlay.set_alpha(150)
+            overlay.fill((0, 0, 0))
+            self.screen.blit(overlay, (0, 0))
+
             message = "GAME OVER"
             text_surface = self.font.render(message, True, WHITE)
             text_rect = text_surface.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2))
             self.screen.blit(text_surface, text_rect)
+
+            pygame.draw.rect(self.screen, WHITE, self.retry_button)
+            pygame.draw.rect(self.screen, BLACK, self.retry_button, 2)
+
+            retry_text = self.font.render("Tentar novamente?", True, BLACK)
+            retry_rect = retry_text.get_rect(center=self.retry_button.center)
+            self.screen.blit(retry_text, retry_rect)
+
+            pygame.draw.rect(self.screen, WHITE, self.exit_button)
+            pygame.draw.rect(self.screen, BLACK, self.exit_button, 2)
+
+            exit_text = self.font.render("Sair", True, BLACK)
+            exit_rect = exit_text.get_rect(center=self.exit_button.center)
+            self.screen.blit(exit_text, exit_rect)
+
         pygame.display.flip()
 
     def quit(self):

@@ -1,19 +1,15 @@
 import pygame
+from src.entities.sprite import Sprite
 from src.world.dynamic_object import DynamicObject
 from src.entities.health import Health
 from src.utils.config import (
     WHITE,
-    DRAW_WIDTH,
-    DRAW_HEIGHT,
     DRAW_Y_OFFSET,
     FOOT_ALIGN_BONUS,
 )
 
 
 class Character(DynamicObject):
-    ANIM_FPS = {}
-    _assets_loaded = False
-    _frames = {}
 
     def __init__(
         self,
@@ -26,16 +22,10 @@ class Character(DynamicObject):
         attack_interval=0.45,
         attack_range_x=50,
         attack_range_y=40,
-        draw_width=None,
-        draw_height=None,
     ):
         super().__init__(pos, width, height, color)
         self.health = Health(max_lives=max_lives, invuln_duration=invuln_duration)
         self.facing_right = True
-        self.anim_state = "idle"
-        self.anim_time = 0.0
-        self.anim_index = 0
-        self.current_frame = None
         self.attack_cooldown = 0.0
         self.attack_interval = attack_interval
         self.attack_timer = 0.0
@@ -45,16 +35,15 @@ class Character(DynamicObject):
         self.move_input = False
         self.is_dead = False
         self.active = True
-        self.draw_width  = draw_width  or DRAW_WIDTH
-        self.draw_height = draw_height or DRAW_HEIGHT
 
-    
-    @classmethod
-    def _load_assets(cls):
-        pass
+        self.sprite: Sprite | None = None
 
    
-    def _update_animation(self, dt):
+    def _update_animation(self, dt: float):
+        if self.sprite:
+            self.sprite.update(dt)
+ 
+    def _logic_state_machine(self):
         pass
 
    
@@ -72,9 +61,8 @@ class Character(DynamicObject):
         self.attack_pending = True
         self.attack_timer = 0.25
         self.attack_cooldown = self.attack_interval
-        self.anim_state = "attack"
-        self.anim_time = 0.0
-        self.anim_index = 0
+        if self.sprite:
+            self.sprite.set_animation("attack")
 
     @property
     def lives(self):
@@ -113,28 +101,20 @@ class Character(DynamicObject):
         return pygame.Rect(x, y, self.attack_range_x, self.attack_range_y)
 
     
-    def draw(self, surface, camera_x=0):
-        draw_x = int(self.pos.x) - camera_x
-        draw_y = int(self.pos.y)
-
-        if self.current_frame is None:
-            pygame.draw.ellipse(surface, self.color,
-                                (draw_x, draw_y, self.width, self.height))
-            pygame.draw.ellipse(surface, WHITE,
-                                (draw_x, draw_y, self.width, self.height), 2)
+    def draw(self, surface: pygame.Surface, camera_x: int = 0) -> None:
+        x = int(self.pos.x) - camera_x
+        y = int(self.pos.y)
+ 
+        if self.sprite is None:
+            pygame.draw.ellipse(surface, self.color, (x, y, self.width, self.height))
+            pygame.draw.ellipse(surface, WHITE, (x, y, self.width, self.height), 2)
             return
-
-        frame = self.current_frame
-        if not self.facing_right:
-            frame = pygame.transform.flip(frame, True, False)
-
-        bounds = frame.get_bounding_rect(min_alpha=1)
-        bottom_padding = max(0, frame.get_height() - bounds.bottom)
-        scale_y = self.draw_height / frame.get_height()
-        feet_correction = int(bottom_padding * scale_y)
-
-        sprite = pygame.transform.scale(frame, (self.draw_width, self.draw_height))
-        sprite_x = draw_x + (self.width - self.draw_width) // 2
-        sprite_y = (draw_y + (self.height - self.draw_height)
-                    + DRAW_Y_OFFSET + feet_correction + FOOT_ALIGN_BONUS)
-        surface.blit(sprite, (sprite_x, sprite_y))
+ 
+        self.sprite.draw(
+            surface, x, y,
+            flip_h=not self.facing_right,
+            char_width=self.width,
+            char_height=self.height,
+            y_offset=DRAW_Y_OFFSET,
+            foot_bonus=FOOT_ALIGN_BONUS,
+        )

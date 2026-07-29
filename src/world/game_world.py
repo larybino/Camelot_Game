@@ -122,6 +122,7 @@ class GameWorld:
         else:
             collision.apply_gravity(self.player, dt)
             collision.move_with_platforms(self.player, self.platforms, dt)
+        self.player._logic_state_machine()
         self.player._update_animation(dt)
 
         collision.apply_player_attack(self.player, self.enemies)

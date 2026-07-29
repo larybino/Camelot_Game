@@ -1,24 +1,23 @@
-import pygame
 from pathlib import Path
+import pygame
 from pygame.locals import *
+
 from src.entities.animation import Animation
-from src.entities.sprite_manager import SpriteManager
+from src.entities.character import Character
 from src.entities.sprite import Sprite
+from src.entities.sprite_manager import SpriteManager
 from src.utils.config import (
     DRAW_HEIGHT,
     DRAW_WIDTH,
-    PLAYER_SPEED,
     JUMP_SPEED,
-    RED,
-    P_WIDTH,
     P_HEIGHT,
-    GRAVITY
+    P_WIDTH,
+    PLAYER_SPEED,
+    RED,
 )
-from src.entities.character import Character
 
 
 class Player(Character):
-    
     _frames_cache: dict[str, list[pygame.Surface]] | None = None
 
     def __init__(self, pos):
@@ -37,63 +36,43 @@ class Player(Character):
         self.artifacts = []
         self.hurt_timer = 0.0
         self.hurt_duration = 0.15
+        self.is_attacking = False
 
         self._load_animations()
         if self.sprite:
             self.sprite.set_animation("idle")
 
-   
     def _load_animations(self):
         if Player._frames_cache is None:
             root = Path(__file__).resolve().parents[2]
             d = root / "assets" / "sprites" / "with_outline"
             Player._frames_cache = {
-                "idle":   SpriteManager.load_strip(d / "IDLE.png",     84),
+                "idle":   SpriteManager.load_strip(d / "IDLE.png",     96),
                 "run":    SpriteManager.load_strip(d / "RUN.png",      96),
                 "jump":   SpriteManager.load_strip(d / "JUMP.png",     96),
                 "attack": SpriteManager.load_strip(d / "ATTACK 1.png", 96),
                 "hurt":   SpriteManager.load_strip(d / "HURT.png",     96),
                 "death":  SpriteManager.load_strip(d / "DEATH.png",    96),
             }
- 
+
         f = Player._frames_cache
         self.sprite = Sprite(
             animations={
-                "idle":   Animation(f["idle"],   fps=8),
-                "run":    Animation(f["run"],    fps=12),
+                "idle":   Animation(f["idle"],   fps=8,  loop=True),
+                "run":    Animation(f["run"],    fps=12, loop=True),
                 "jump":   Animation(f["jump"],   fps=10, loop=False),
-                "attack": Animation(f["attack"], fps=12, loop=False),
+                "attack": Animation(f["attack"], fps=16, loop=False), # FPS um pouco maior pra ficar fluído
                 "hurt":   Animation(f["hurt"],   fps=10, loop=False),
                 "death":  Animation(f["death"],  fps=8,  loop=False),
             },
             draw_width=DRAW_WIDTH,
             draw_height=DRAW_HEIGHT,
         )
- 
- 
-    def _logic_state_machine(self):
-        if not self.sprite:
-            return
- 
-        if not self.is_alive:
-            self.sprite.set_animation("death")
-        elif self.hurt_timer > 0:
-            self.sprite.set_animation("hurt")
-        elif self.attack_timer > 0:
-            self.sprite.set_animation("attack")
-        elif not self.on_ground:
-            self.sprite.set_animation("jump")
-        elif self.move_input and abs(self.vel.x) > 1:
-            self.sprite.set_animation("run")
-        else:
-            current = self.sprite.current_animation
-            if current is None or current.is_finished or \
-               self.sprite._current_key not in ("attack", "hurt", "death"):
-                self.sprite.set_animation("idle")
-    
+
     def handle_input(self):
         if not self.is_alive:
             self.vel.x = 0
+            self.move_input = False
             return
 
         keys = pygame.key.get_pressed()
@@ -104,32 +83,67 @@ class Player(Character):
         self.vel.x = 0
         if left_pressed and not right_pressed:
             self.vel.x = -PLAYER_SPEED
-        if right_pressed and not left_pressed:
+            self.facing_right = False
+        elif right_pressed and not left_pressed:
             self.vel.x = PLAYER_SPEED
+            self.facing_right = True
+
+        if (keys[K_RCTRL] or keys[K_LCTRL]) and self.move_input:
+            self.vel.x *= 1.5
+
         if (keys[K_UP] or keys[K_w] or keys[K_SPACE]) and self.on_ground:
             self.vel.y = JUMP_SPEED
             self.on_ground = False
-        if keys[K_RCTRL] or keys[K_LCTRL]:
-            self.vel.x *= 2
-        if keys[K_k] and self.attack_cooldown == 0.0:
+
+        if keys[K_k] and self.attack_cooldown == 0.0 and not self.is_attacking:
             self._start_attack()
 
-  
+    def _start_attack(self):
+        super()._start_attack()
+        self.is_attacking = True
+        if self.sprite:
+            self.sprite.set_animation("attack")
+
+    def _logic_state_machine(self):
+        if not self.sprite:
+            return
+
+        if not self.is_alive:
+            self.sprite.set_animation("death")
+            return
+
+        if self.hurt_timer > 0:
+            self.sprite.set_animation("hurt")
+            return
+
+        if self.is_attacking:
+            current_anim = self.sprite.current_animation
+            if (current_anim and current_anim.is_finished) or self.attack_timer == 0:
+                self.is_attacking = False
+            else:
+                self.sprite.set_animation("attack")
+                return
+
+        if not self.on_ground:
+            self.sprite.set_animation("jump")
+            return
+
+        if self.move_input and abs(self.vel.x) > 0:
+            self.sprite.set_animation("run")
+        else:
+            self.sprite.set_animation("idle")
+
     def update(self, dt):
         self.handle_input()
         self.update_common(dt)
         self._logic_state_machine()
         self._update_animation(dt)
 
-        if abs(self.vel.x) > 1:
-            self.facing_right = self.vel.x > 0
-
     def update_common(self, dt):
         super().update_common(dt)
         if self.hurt_timer > 0:
             self.hurt_timer = max(0.0, self.hurt_timer - dt)
 
-  
     def take_damage(self, amount=1, ignore_invuln=False):
         damaged = super().take_damage(amount, ignore_invuln=ignore_invuln)
         if damaged and self.is_alive:
@@ -140,8 +154,8 @@ class Player(Character):
                 self.vel.y = 0
             else:
                 self.hurt_timer = self.hurt_duration
+                self.is_attacking = False
         return damaged
-
 
     def respawn(self, spawn_pos):
         self.pos.x = spawn_pos.x
@@ -151,5 +165,6 @@ class Player(Character):
         self.on_ground = False
         self.is_alive = True
         self.active = True
+        self.is_attacking = False
         if self.sprite:
             self.sprite.set_animation("idle")

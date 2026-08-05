@@ -91,16 +91,39 @@ def handle_ladder(player, platforms, dt, climb_speed):
 
 
 def snap_to_platform(obj, platforms):
-    hit = obj.rect.collidelist(platforms)
-    if hit != -1:
-        obj.pos.x = platforms[hit].rect.centerx - obj.width
-        obj.pos.y = platforms[hit].rect.top - obj.height
+    if not platforms:
+        return
+
+    obj_rect = obj.rect
+    best_platform = None
+    best_distance = None
+
+    for platform in platforms:
+        plat_rect = platform.rect
+        if not (plat_rect.left <= obj_rect.centerx <= plat_rect.right):
+            continue
+
+        target_y = plat_rect.top - obj.height
+        distance = abs(obj.pos.y - target_y)
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_platform = platform
+
+    if best_platform is None:
+        hit = obj.rect.collidelist(platforms)
+        if hit == -1:
+            return
+        best_platform = platforms[hit]
+
+    plat_rect = best_platform.rect
+    obj.pos.x = max(plat_rect.left, min(obj.pos.x, plat_rect.right - obj.width))
+    obj.pos.y = plat_rect.top - obj.height
 
 
 def collect_artifacts(player, artifacts, active_objects=None):
     hit = player.rect.collidelist(artifacts)
     if hit == -1:
-        return
+        return None
 
     artifact = artifacts[hit]
     player.artifacts.append(artifact)
@@ -108,6 +131,20 @@ def collect_artifacts(player, artifacts, active_objects=None):
     del artifacts[hit]
     if active_objects is not None and artifact in active_objects:
         active_objects.remove(artifact)
+    return artifact
+
+
+def collect_coins(player, coins, active_objects=None):
+    hit = player.rect.collidelist(coins)
+    if hit == -1:
+        return None
+
+    coin = coins[hit]
+    coin.active = False
+    del coins[hit]
+    if active_objects is not None and coin in active_objects:
+        active_objects.remove(coin)
+    return coin
 
 
 def apply_player_attack(player, enemies):

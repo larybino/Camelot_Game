@@ -71,7 +71,7 @@ class GameManager:
 
             if (
                 self.game_world is not None
-                and self.game_world.game_over
+                and (self.game_world.game_over or self.game_world.game_won)
                 and event.type == pygame.MOUSEBUTTONDOWN
                 and event.button == 1
             ):
@@ -108,17 +108,25 @@ class GameManager:
         artifact_surface = self.font.render(artifact_text, True, WHITE)
         self.screen.blit(artifact_surface, (10, 30))
 
-        if self.game_world is not None and self.game_world.game_over:
+        score_text = self.game_world.get_score_text()
+        score_surface = self.font.render(score_text, True, WHITE)
+        self.screen.blit(score_surface, (10, 50))
+
+        if self.game_world is not None and (self.game_world.game_over or self.game_world.game_won):
 
             overlay = pygame.Surface((SCREEN_W, SCREEN_H))
             overlay.set_alpha(150)
             overlay.fill((0, 0, 0))
             self.screen.blit(overlay, (0, 0))
 
-            message = "GAME OVER"
+            message = "YOU WIN" if self.game_world.game_won else "GAME OVER"
             text_surface = self.font.render(message, True, WHITE)
             text_rect = text_surface.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2))
             self.screen.blit(text_surface, text_rect)
+
+            final_score = self.font.render(f"Final Score: {self.game_world.score}", True, WHITE)
+            final_rect = final_score.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2 + 24))
+            self.screen.blit(final_score, final_rect)
 
             pygame.draw.rect(self.screen, WHITE, self.retry_button)
             pygame.draw.rect(self.screen, BLACK, self.retry_button, 2)

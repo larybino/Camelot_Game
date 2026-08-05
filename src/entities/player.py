@@ -61,7 +61,7 @@ class Player(Character):
                 "idle":   Animation(f["idle"],   fps=8,  loop=True),
                 "run":    Animation(f["run"],    fps=12, loop=True),
                 "jump":   Animation(f["jump"],   fps=10, loop=False),
-                "attack": Animation(f["attack"], fps=16, loop=False), # FPS um pouco maior pra ficar fluído
+                "attack": Animation(f["attack"], fps=16, loop=False),
                 "hurt":   Animation(f["hurt"],   fps=10, loop=False),
                 "death":  Animation(f["death"],  fps=8,  loop=False),
             },

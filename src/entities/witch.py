@@ -11,7 +11,14 @@ class Witch(Enemy):
     _frames_cache: dict[str, list[pygame.Surface]] | None = None
 
     def __init__(self, pos, attacks=None):
-        super().__init__(pos, attacks=attacks)
+        super().__init__(
+            pos,
+            attacks=attacks,
+            max_lives=3,
+            attack_interval=2.0,     
+            attack_range_x=110,      
+            attack_range_y=80,
+        )
         self._load_animations()
         if self.sprite:
             self.sprite.set_animation("idle")
@@ -41,27 +48,31 @@ class Witch(Enemy):
         f = Witch._frames_cache
         self.sprite = Sprite(
             animations={
-                "idle":   Animation(f["idle"],   fps=8),
-                "attack": Animation(f["attack"], fps=6, loop=False),
-                "death":  Animation(f["death"],  fps=8, loop=False),
+                "idle":   Animation(f["idle"],   fps=8,  loop=True),
+                "attack": Animation(f["attack"], fps=10, loop=False), # FPS em 10 para o ataque ficar mais ágil
+                "death":  Animation(f["death"],  fps=8,  loop=False),
             },
             draw_width=145,
             draw_height=145,
         )
 
     def _on_update(self, dt, player) -> None:
+        if self.is_attacking or not self.is_alive:
+            self.vel.x = 0
+            return
+
         self.vel.x = PLAYER_SPEED * (1 if self.facing_right else -1) if self.move_input else 0
 
-        if (
-            player
-            and abs(self.pos.x - player.pos.x) < self.attack_range_x
-            and abs(self.pos.y - player.pos.y) < self.attack_range_y
-            and self.attack_cooldown == 0.0
-            # and self.anim_state != "attack"
-        ):
-            self._start_attack()
-            self._deal_damage(player)
-            # classe sprite, responsável por render sprite
-            # vai ter uma ref pra textura na memória
-            #  uma animação é um vetor de cada sprite, ai vai ter o vetor que ta á sprite  evc condfigura quanto trempo vai ficar cada sprite
-            # pro render passa o dt que passou pra animação
+        if player:
+            dist_x = player.pos.x - self.pos.x
+            if abs(dist_x) < 250:
+                self.facing_right = dist_x > 0
+
+            if (
+                abs(dist_x) < self.attack_range_x
+                and abs(self.pos.y - player.pos.y) < self.attack_range_y
+                and self.attack_cooldown == 0.0
+                and not self.is_attacking
+            ):
+                self._start_attack()
+                self._deal_damage(player)

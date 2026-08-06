@@ -152,11 +152,12 @@ def apply_player_attack(player, enemies):
         return
 
     attack_rect = player.get_attack_rect()
+    damage = max(1, int(getattr(player, "attack_damage", 1)))
     for enemy in enemies:
         if not enemy.active:
             continue
         if enemy.rect.colliderect(attack_rect):
-            enemy.take_damage(1)
+            enemy.take_damage(damage)
 
 
 def get_ladder_hit(player, ladders):

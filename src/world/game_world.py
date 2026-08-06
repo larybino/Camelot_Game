@@ -15,7 +15,9 @@ from src.world import collision
 from src.utils.config import GROUND_Y, SCREEN_H, SCREEN_W, WORLD_WIDTH, P_HEIGHT, P_WIDTH
 
 
-GROUND_EXTENSION_WIDTH = 200000
+GROUND_EXTENSION_WIDTH = WORLD_WIDTH + 600
+COLLECTIBLE_SPAWN_MAX_X = WORLD_WIDTH - 180
+FINISH_MARGIN_X = 380
 
 
 class GameWorld:
@@ -39,6 +41,9 @@ class GameWorld:
         self._rewarded_enemy_ids = set()
         self._last_player_lives = self.player.lives
         self._victory_sound_played = False
+        self._applied_artifact_effects = set()
+        self._pickup_fx_timer = 0.0
+        self._pickup_fx_color = (255, 255, 255)
 
         self.active_objects.extend(self.artifacts)
         self.active_objects.extend(self.coins)
@@ -47,6 +52,7 @@ class GameWorld:
         self.enemies = self._spawn_enemies()
         self.active_objects.extend(self.enemies)
         self._randomize_collectibles_on_platforms()
+        self.world_end_x = self._compute_world_end_x()
 
     def _load_sfx(self):
         root = Path(__file__).resolve().parents[2]
@@ -135,14 +141,17 @@ class GameWorld:
         return ladders
 
     def _pick_collectible_spot(self, obj_width, obj_height, used_spots):
-        candidates = [p for p in self.platforms if p.width >= obj_width + 8]
+        candidates = [
+            p for p in self.platforms
+            if p.width >= obj_width + 8 and p.rect.left <= COLLECTIBLE_SPAWN_MAX_X
+        ]
         if not candidates:
             return P_WIDTH, GROUND_Y - obj_height
 
         for _ in range(40):
             plat = random.choice(candidates)
             min_x = plat.rect.left
-            max_x = plat.rect.right - obj_width
+            max_x = min(plat.rect.right - obj_width, COLLECTIBLE_SPAWN_MAX_X - obj_width)
             if max_x < min_x:
                 continue
 
@@ -153,7 +162,8 @@ class GameWorld:
                 return x, y
 
         fallback = random.choice(candidates)
-        return fallback.rect.left, fallback.rect.top - obj_height
+        fallback_x = min(fallback.rect.left, COLLECTIBLE_SPAWN_MAX_X - obj_width)
+        return fallback_x, fallback.rect.top - obj_height
 
     def _randomize_collectibles_on_platforms(self):
         used_spots = []
@@ -170,6 +180,15 @@ class GameWorld:
             coin.pos.y = y
             used_spots.append((x, y))
 
+    def _compute_world_end_x(self):
+        collectible_positions = [obj.pos.x for obj in (self.artifacts + self.coins)]
+        if not collectible_positions:
+            return WORLD_WIDTH
+
+        farthest_collectible_x = max(collectible_positions)
+        target_end = int(farthest_collectible_x + FINISH_MARGIN_X)
+        return max(SCREEN_W + 200, min(target_end, WORLD_WIDTH))
+
     def _update_camera(self):
         target = self.player.pos.x - SCREEN_W // 2
         self.camera_x += (target - self.camera_x) * 0.15
@@ -177,9 +196,7 @@ class GameWorld:
         self.camera_x = max(0, min(self.camera_x, world_right - SCREEN_W))
 
     def _get_world_right_bound(self):
-        if not self.platforms:
-            return WORLD_WIDTH
-        return max(platform.rect.right for platform in self.platforms)
+        return self.world_end_x
 
     def handle_event(self, event):
         for obj in self.active_objects:
@@ -192,15 +209,42 @@ class GameWorld:
     def _is_victory(self):
         if self.game_over:
             return False
-        no_items_left = len(self.artifacts) == 0 and len(self.coins) == 0
-        all_enemies_defeated = all(not enemy.is_alive for enemy in self.enemies)
-        return no_items_left and all_enemies_defeated and self.player.is_alive
+        return len(self.player.artifacts) >= 2 and self.player.is_alive
+
+    def _apply_artifact_effect(self, artifact):
+        name = artifact.name
+        if name in self._applied_artifact_effects:
+            return
+
+        if name == "Santo Graal":
+            if self.player.lives == self.player.max_lives and self.player.max_lives < 5:
+                self.player.max_lives += 1
+            self.player.lives = min(self.player.max_lives, self.player.lives + 1)
+            self._pickup_fx_color = (210, 255, 210)
+
+        elif name == "Excalibur":
+            self.player.attack_damage += 2
+            self.player.attack_range_x += 20
+            self._pickup_fx_color = (255, 225, 120)
+
+        elif name == "Cajado de Merlim":
+            self.player.attack_range_x += 45
+            self.player.attack_range_y += 20
+            self.player.attack_interval = max(0.16, self.player.attack_interval * 0.6)
+            self.player.attack_cooldown = min(self.player.attack_cooldown, self.player.attack_interval)
+            self._pickup_fx_color = (180, 220, 255)
+
+        self._pickup_fx_timer = 0.45
+        self._applied_artifact_effects.add(name)
 
     def update(self, dt):
         if self.game_over or self.game_won:
             # self.player.update_common(dt)
             # self.player._update_animation(dt)
             return
+
+        if self._pickup_fx_timer > 0:
+            self._pickup_fx_timer = max(0.0, self._pickup_fx_timer - dt)
 
         for coin in self.coins:
             coin.update(dt)
@@ -210,6 +254,7 @@ class GameWorld:
 
         collected_artifact = collision.collect_artifacts(self.player, self.artifacts, self.active_objects)
         if collected_artifact is not None:
+            self._apply_artifact_effect(collected_artifact)
             self.score += 50
             self._play_sfx("artifact")
 
@@ -293,15 +338,28 @@ class GameWorld:
                     pygame.draw.rect(surface, (0, 255, 255), obj.rect.move(-cam, 0), 2)
                     pygame.draw.rect(surface, (255, 0, 0), pygame.Rect(obj.rect.left + 4, obj.rect.top, obj.rect.width - 8, obj.rect.height).move(-cam, 0), 1)
 
+        finish_x = int(self.world_end_x - cam)
+        if -10 <= finish_x <= SCREEN_W + 10:
+            pygame.draw.line(surface, (255, 250, 90), (finish_x, 0), (finish_x, SCREEN_H), 3)
+            pygame.draw.polygon(
+                surface,
+                (255, 80, 80),
+                [(finish_x + 3, 20), (finish_x + 40, 32), (finish_x + 3, 44)],
+            )
+
+        if self._pickup_fx_timer > 0 and self.player.is_alive:
+            center_x = int(self.player.rect.centerx - cam)
+            center_y = int(self.player.rect.centery)
+            radius = int(18 + (1.0 - self._pickup_fx_timer / 0.45) * 14)
+            pygame.draw.circle(surface, self._pickup_fx_color, (center_x, center_y), radius, 3)
+
         for i, artifact in enumerate(self.player.artifacts):
-            artifact.pos.x = 10 + i * 30
-            artifact.pos.y = 55
+            artifact.pos.x = 12 + i * 28
+            artifact.pos.y = 80
             artifact.draw(surface, 0)
         
     def get_artifact_info(self):
-        if self.player.artifacts:
-            return "Artifacts: "
-        return "No artifacts collected"
+        return f"Artifacts: {len(self.player.artifacts)}/3"
 
     def get_score_text(self):
         return f"Score: {self.score}"

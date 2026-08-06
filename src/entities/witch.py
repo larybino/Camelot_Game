@@ -39,7 +39,11 @@ class Witch(Enemy):
                     sheet = SpriteManager._get_sheet(path)
                     if sheet:
                         h = sheet.get_height()
-                        Witch._frames_cache[state] = SpriteManager.load_strip(path, h)
+                        frames = SpriteManager.load_strip(path, h)
+                        Witch._frames_cache[state] = [
+                            frame for frame in frames
+                            if frame.get_bounding_rect(min_alpha=1).width > 0
+                        ]
                     else:
                         Witch._frames_cache[state] = []
                 else:

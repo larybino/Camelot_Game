@@ -14,6 +14,7 @@ class Sprite:
         self.draw_height = draw_height
 
         self._current_key: str = ""
+        self._foot_correction_cache: dict[str, int] = {}
         self._set_first_available()
 
 
@@ -63,10 +64,7 @@ class Sprite:
         if flip_h:
             frame = pygame.transform.flip(frame, True, False)
 
-        bounds = frame.get_bounding_rect(min_alpha=1)
-        bottom_padding = max(0, frame.get_height() - bounds.bottom)
-        scale_y = self.draw_height / frame.get_height()
-        feet_correction = int(bottom_padding * scale_y)
+        feet_correction = self._get_feet_correction(self._current_key, anim)
 
         scaled = pygame.transform.scale(frame, (self.draw_width, self.draw_height))
         sx = x + (char_width - self.draw_width) // 2
@@ -78,3 +76,25 @@ class Sprite:
         first = next(iter(self.animations), None)
         if first:
             self._current_key = first
+
+    def _get_feet_correction(self, key: str, anim: Animation) -> int:
+        cached = self._foot_correction_cache.get(key)
+        if cached is not None:
+            return cached
+
+        reference_frame = None
+        for frame in anim.frames:
+            if frame.get_bounding_rect(min_alpha=1).width > 0:
+                reference_frame = frame
+                break
+
+        if reference_frame is None:
+            self._foot_correction_cache[key] = 0
+            return 0
+
+        bounds = reference_frame.get_bounding_rect(min_alpha=1)
+        bottom_padding = max(0, reference_frame.get_height() - bounds.bottom)
+        scale_y = self.draw_height / reference_frame.get_height()
+        feet_correction = int(bottom_padding * scale_y)
+        self._foot_correction_cache[key] = feet_correction
+        return feet_correction

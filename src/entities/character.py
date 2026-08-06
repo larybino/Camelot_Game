@@ -22,6 +22,7 @@ class Character(DynamicObject):
         attack_interval=0.45,
         attack_range_x=50,
         attack_range_y=40,
+        attack_damage=1,
     ):
         super().__init__(pos, width, height, color)
         self.health = Health(max_lives=max_lives, invuln_duration=invuln_duration)
@@ -32,6 +33,7 @@ class Character(DynamicObject):
         self.attack_pending = False
         self.attack_range_x = attack_range_x
         self.attack_range_y = attack_range_y
+        self.attack_damage = max(1, int(attack_damage))
         self.move_input = False
         self.is_alive = True
         self.active = True

@@ -3,7 +3,6 @@ from pathlib import Path
 from src.utils.config import PLAYER_SPEED
 from src.entities.enemy import Enemy
 from src.entities.animation import Animation
-from src.entities.sprite import Sprite
 from src.entities.sprite_manager import SpriteManager
 
 class Witch(Enemy):
@@ -20,8 +19,7 @@ class Witch(Enemy):
             attack_range_y=80,
         )
         self._load_animations()
-        if self.sprite:
-            self.sprite.set_animation("idle")
+        self.set_animation("idle")
 
     def _load_animations(self) -> None:
         if Witch._frames_cache is None:
@@ -50,15 +48,12 @@ class Witch(Enemy):
                     Witch._frames_cache[state] = []
 
         f = Witch._frames_cache
-        self.sprite = Sprite(
-            animations={
-                "idle":   Animation(f["idle"],   fps=8,  loop=True),
-                "attack": Animation(f["attack"], fps=10, loop=False), # FPS em 10 para o ataque ficar mais ágil
-                "death":  Animation(f["death"],  fps=8,  loop=False),
-            },
-            draw_width=145,
-            draw_height=145,
-        )
+        self.animations = {
+            "idle":   Animation.from_surfaces(f["idle"],   fps=8,  draw_width=145, draw_height=145, loop=True),
+            "attack": Animation.from_surfaces(f["attack"], fps=10, draw_width=145, draw_height=145, loop=False),
+            "death":  Animation.from_surfaces(f["death"],  fps=8,  draw_width=145, draw_height=145, loop=False),
+        }
+        self._set_first_animation()
 
     def _on_update(self, dt, player) -> None:
         if self.is_attacking or not self.is_alive:

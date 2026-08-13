@@ -37,25 +37,25 @@ class Enemy(Character):
         collision.move_with_platforms(self, platforms, dt)
 
     def _logic_state_machine(self) -> None:
-        if not self.sprite:
+        if not self.animations:
             return
 
         if not self.is_alive:
-            self.sprite.set_animation("death")
+            self.set_animation("death")
             return
 
         # BLINDAGEM DO ATAQUE:
         if self.is_attacking:
-            current_anim = self.sprite.current_animation
+            current_anim = self.current_animation
             # Checamos se a animação de fato acabou no Animation.is_finished
             if current_anim and current_anim.is_finished:
                 self.is_attacking = False
             else:
                 # Garante que continua tocando o ataque sem tentar mudar de estado
-                self.sprite.set_animation("attack")
+                self.set_animation("attack")
                 return
 
-        self.sprite.set_animation("idle")
+        self.set_animation("idle")
 
     def update(self, dt: float, platforms, player=None) -> None:
         if not self.is_alive:
@@ -80,17 +80,14 @@ class Enemy(Character):
         super()._start_attack()
         self.is_attacking = True
         
-        anim = None
-        if self.sprite:
-            anim = self.sprite.animations.get("attack")
+        anim = self.animations.get("attack")
 
-        duration = (len(anim.frames) / anim.fps) if (anim and anim.frames) else 0.5
+        duration = (len(anim.sprites) / anim.fps) if (anim and anim.sprites and anim.fps > 0) else 0.5
         self.attack_timer = duration
         
         self.attack_cooldown = max(self.attack_interval, duration + 0.3)
 
-        if self.sprite:
-            self.sprite.set_animation("attack")
+        self.set_animation("attack")
 
     def _deal_damage(self, target) -> None:
         if self.attacks:

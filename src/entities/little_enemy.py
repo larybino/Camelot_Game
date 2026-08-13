@@ -4,7 +4,6 @@ from pathlib import Path
 from src.utils.config import PLAYER_SPEED
 from src.entities.enemy import Enemy
 from src.entities.animation import Animation
-from src.entities.sprite import Sprite
 from src.entities.sprite_manager import SpriteManager
 
 
@@ -19,8 +18,7 @@ class LittleEnemy(Enemy):
         super().__init__(pos, attacks=attacks)
         self.patrol_origin = pygame.Vector2(pos)
         self._load_animations()
-        if self.sprite:
-            self.sprite.set_animation("idle")
+        self.set_animation("idle")
 
     def _load_animations(self) -> None:
         if LittleEnemy._frames_cache is None:
@@ -31,34 +29,38 @@ class LittleEnemy(Enemy):
             )
             if path.exists():
                 all_frames = SpriteManager.load_grid(path, 24, 24)
+
+                cols = 5
+                def _row_frames(row: int) -> list[pygame.Surface]:
+                    start = row * cols
+                    end = start + cols
+                    return all_frames[start:end]
+
                 LittleEnemy._frames_cache = {
-                    "idle":   [f for i, f in enumerate(all_frames) if i != 10],
-                    "attack": [all_frames[10]],
-                    "death":  [all_frames[10]],
+                    "idle":   _row_frames(0),
+                    "attack": _row_frames(1),
+                    "death":  _row_frames(2),
                 }
             else:
                 LittleEnemy._frames_cache = {"idle": [], "attack": [], "death": []}
 
         f = LittleEnemy._frames_cache
-        self.sprite = Sprite(
-            animations={
-                "idle":   Animation(f["idle"],   fps=8),
-                "attack": Animation(f["attack"], fps=4,  loop=False),
-                "death":  Animation(f["death"],  fps=8,  loop=False),
-            },
-            draw_width=44,
-            draw_height=44,
-        )
+        self.animations = {
+            "idle":   Animation.from_surfaces(f["idle"],   fps=8, draw_width=44, draw_height=44),
+            "attack": Animation.from_surfaces(f["attack"], fps=4, draw_width=44, draw_height=44, loop=False),
+            "death":  Animation.from_surfaces(f["death"],  fps=8, draw_width=44, draw_height=44, loop=False),
+        }
+        self._set_first_animation()
 
     def _logic_state_machine(self) -> None:
-        if not self.sprite:
+        if not self.animations:
             return
         if not self.is_alive:
-            self.sprite.set_animation("death")
+            self.set_animation("death")
         elif self.attack_timer > 0:
-            self.sprite.set_animation("attack")
+            self.set_animation("attack")
         else:
-            self.sprite.set_animation("idle")
+            self.set_animation("idle")
 
     def _on_update(self, dt, player) -> None:
         left_bound  = self.patrol_origin.x
@@ -84,5 +86,4 @@ class LittleEnemy(Enemy):
     def _start_attack(self) -> None:
         self.attack_timer    = 0.3
         self.attack_cooldown = self.attack_interval
-        if self.sprite:
-            self.sprite.set_animation("attack")
+        self.set_animation("attack")

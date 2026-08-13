@@ -1,5 +1,5 @@
 import pygame
-from src.entities.sprite import Sprite
+from src.entities.animation import Animation
 from src.world.dynamic_object import DynamicObject
 from src.entities.health import Health
 from src.utils.config import (
@@ -38,12 +38,29 @@ class Character(DynamicObject):
         self.is_alive = True
         self.active = True
 
-        self.sprite: Sprite | None = None
+        self.animations: dict[str, Animation] = {}
+        self._current_animation_key: str = ""
 
    
     def _update_animation(self, dt: float):
-        if self.sprite:
-            self.sprite.update(dt)
+        anim = self.current_animation
+        if anim:
+            anim.update(dt)
+
+    def set_animation(self, key: str) -> None:
+        if key == self._current_animation_key or key not in self.animations:
+            return
+        self._current_animation_key = key
+        self.animations[key].reset()
+
+    @property
+    def current_animation(self) -> Animation | None:
+        return self.animations.get(self._current_animation_key)
+
+    def _set_first_animation(self) -> None:
+        first = next(iter(self.animations), None)
+        if first:
+            self._current_animation_key = first
  
     def _logic_state_machine(self):
         pass
@@ -63,8 +80,7 @@ class Character(DynamicObject):
         self.attack_pending = True
         self.attack_timer = 0.25
         self.attack_cooldown = self.attack_interval
-        if self.sprite:
-            self.sprite.set_animation("attack")
+        self.set_animation("attack")
 
     @property
     def lives(self):
@@ -107,12 +123,13 @@ class Character(DynamicObject):
         x = int(self.pos.x) - camera_x
         y = int(self.pos.y)
  
-        if self.sprite is None:
+        anim = self.current_animation
+        if anim is None:
             pygame.draw.ellipse(surface, self.color, (x, y, self.width, self.height))
             pygame.draw.ellipse(surface, WHITE, (x, y, self.width, self.height), 2)
             return
  
-        self.sprite.draw(
+        anim.draw(
             surface, x, y,
             flip_h=not self.facing_right,
             char_width=self.width,

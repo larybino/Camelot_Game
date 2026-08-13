@@ -4,7 +4,6 @@ from pygame.locals import *
 
 from src.entities.animation import Animation
 from src.entities.character import Character
-from src.entities.sprite import Sprite
 from src.entities.sprite_manager import SpriteManager
 from src.utils.config import (
     DRAW_HEIGHT,
@@ -39,8 +38,7 @@ class Player(Character):
         self.is_attacking = False
 
         self._load_animations()
-        if self.sprite:
-            self.sprite.set_animation("idle")
+        self.set_animation("idle")
 
     def _load_animations(self):
         if Player._frames_cache is None:
@@ -56,18 +54,15 @@ class Player(Character):
             }
 
         f = Player._frames_cache
-        self.sprite = Sprite(
-            animations={
-                "idle":   Animation(f["idle"],   fps=8,  loop=True),
-                "run":    Animation(f["run"],    fps=12, loop=True),
-                "jump":   Animation(f["jump"],   fps=10, loop=False),
-                "attack": Animation(f["attack"], fps=16, loop=False),
-                "hurt":   Animation(f["hurt"],   fps=10, loop=False),
-                "death":  Animation(f["death"],  fps=8,  loop=False),
-            },
-            draw_width=DRAW_WIDTH,
-            draw_height=DRAW_HEIGHT,
-        )
+        self.animations = {
+            "idle":   Animation.from_surfaces(f["idle"],   fps=8,  draw_width=DRAW_WIDTH, draw_height=DRAW_HEIGHT, loop=True),
+            "run":    Animation.from_surfaces(f["run"],    fps=12, draw_width=DRAW_WIDTH, draw_height=DRAW_HEIGHT, loop=True),
+            "jump":   Animation.from_surfaces(f["jump"],   fps=10, draw_width=DRAW_WIDTH, draw_height=DRAW_HEIGHT, loop=False),
+            "attack": Animation.from_surfaces(f["attack"], fps=16, draw_width=DRAW_WIDTH, draw_height=DRAW_HEIGHT, loop=False),
+            "hurt":   Animation.from_surfaces(f["hurt"],   fps=10, draw_width=DRAW_WIDTH, draw_height=DRAW_HEIGHT, loop=False),
+            "death":  Animation.from_surfaces(f["death"],  fps=8,  draw_width=DRAW_WIDTH, draw_height=DRAW_HEIGHT, loop=False),
+        }
+        self._set_first_animation()
 
     def handle_input(self):
         if not self.is_alive:
@@ -101,37 +96,36 @@ class Player(Character):
     def _start_attack(self):
         super()._start_attack()
         self.is_attacking = True
-        if self.sprite:
-            self.sprite.set_animation("attack")
+        self.set_animation("attack")
 
     def _logic_state_machine(self):
-        if not self.sprite:
+        if not self.animations:
             return
 
         if not self.is_alive:
-            self.sprite.set_animation("death")
+            self.set_animation("death")
             return
 
         if self.hurt_timer > 0:
-            self.sprite.set_animation("hurt")
+            self.set_animation("hurt")
             return
 
         if self.is_attacking:
-            current_anim = self.sprite.current_animation
+            current_anim = self.current_animation
             if (current_anim and current_anim.is_finished) or self.attack_timer == 0:
                 self.is_attacking = False
             else:
-                self.sprite.set_animation("attack")
+                self.set_animation("attack")
                 return
 
         if not self.on_ground:
-            self.sprite.set_animation("jump")
+            self.set_animation("jump")
             return
 
         if self.move_input and abs(self.vel.x) > 0:
-            self.sprite.set_animation("run")
+            self.set_animation("run")
         else:
-            self.sprite.set_animation("idle")
+            self.set_animation("idle")
 
     def update(self, dt):
         self.handle_input()
@@ -166,5 +160,4 @@ class Player(Character):
         self.is_alive = True
         self.active = True
         self.is_attacking = False
-        if self.sprite:
-            self.sprite.set_animation("idle")
+        self.set_animation("idle")

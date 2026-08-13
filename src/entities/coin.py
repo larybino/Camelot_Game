@@ -3,7 +3,6 @@ from pathlib import Path
 import pygame
 
 from src.entities.animation import Animation
-from src.entities.sprite import Sprite
 from src.entities.sprite_manager import SpriteManager
 from src.utils.config import A_HEIGHT, A_WIDTH, DRAW_SIZE, GOLD
 from src.world.game_object import GameObject
@@ -14,10 +13,10 @@ class Coin(GameObject):
 
     def __init__(self, pos):
         super().__init__(pos, A_WIDTH, A_HEIGHT, GOLD)
-        self.sprite = self._build_sprite()
+        self.animation = self._build_animation()
 
     @classmethod
-    def _build_sprite(cls) -> Sprite | None:
+    def _build_animation(cls) -> Animation | None:
         if cls._frames_cache is None:
             root = Path(__file__).resolve().parents[2]
             path = (
@@ -36,20 +35,22 @@ class Coin(GameObject):
         if not cls._frames_cache:
             return None
 
-        return Sprite(
-            animations={"spin": Animation(cls._frames_cache, fps=12, loop=True)},
+        return Animation.from_surfaces(
+            cls._frames_cache,
+            fps=12,
             draw_width=DRAW_SIZE,
             draw_height=DRAW_SIZE,
+            loop=True,
         )
 
     def update(self, dt):
-        if self.sprite:
-            self.sprite.update(dt)
+        if self.animation:
+            self.animation.update(dt)
 
     def draw(self, surface, camera_x=0):
         draw_rect = self.rect.move(-camera_x, 0)
-        if self.sprite:
-            self.sprite.draw(
+        if self.animation:
+            self.animation.draw(
                 surface,
                 draw_rect.x,
                 draw_rect.y,

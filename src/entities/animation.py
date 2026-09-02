@@ -43,7 +43,6 @@ class Animation:
         if not self.sprites or self.is_finished:
             return
 
-        # Evita divisao por zero quando fps <= 0 (animacao fica no frame atual).
         if self.frame_duration <= 0.0:
             return
 

@@ -1,8 +1,13 @@
 import pygame
 from pathlib import Path
 from pygame.locals import QUIT, KEYDOWN
-from src.utils.config import (SCREEN_W, SCREEN_H, FPS, BLACK, WHITE, RED)
+from src.utils.config import SCREEN_W, SCREEN_H, FPS, BLACK, WHITE, RED
+from src.utils.scores import load_scores, save_score
 from src.world.game_world import GameWorld
+from src.menu.main_menu import MainMenu
+from src.menu.scoreboard_screen import ScoreboardScreen
+from src.menu.credits_screen import CreditsScreen
+from src.menu.end_screen import EndScreen
 
 class GameManager:
     def __init__(self):
@@ -12,12 +17,19 @@ class GameManager:
         pygame.display.set_caption('Camelot')
         self.clock   = pygame.time.Clock()
         self.font    = pygame.font.Font(None, 24)
+        self.title_font = pygame.font.Font(None, 48)
         self.running = True
+
         self.game_world = None
         self.background = self._load_background()
         self.heart_sprite = self._load_heart_sprite()
-        self.retry_button = pygame.Rect(SCREEN_W // 2 - 175, SCREEN_H // 2 + 40, 170, 40)
-        self.exit_button = pygame.Rect(SCREEN_W // 2 + 15, SCREEN_H // 2 + 40, 120, 40 )
+
+        self.last_player_name = ""
+        self.state = "menu"  
+        self.main_menu = MainMenu(self.font, self.title_font)
+        self.scoreboard_screen = ScoreboardScreen(self.font, self.title_font)
+        self.credits_screen = CreditsScreen(self.font, self.title_font)
+        self.end_screen = None
 
         music_path = Path(__file__).resolve().parents[2] / "assets" / "sprites" / "music" / "Flight_from_the_keep.mp3"
         if music_path.exists():
@@ -48,61 +60,137 @@ class GameManager:
             return None
 
     def start(self):
-        self.game_world = GameWorld()
         self.main_loop()
 
     def main_loop(self):
         while self.running:
-            dt = self.clock.tick(FPS) / 1000.0 
+            dt = self.clock.tick(FPS) / 1000.0
             self._handle_events()
             self._update(dt)
             self._render()
-        self.quit() 
+        self.quit()
+
+    def _start_new_game(self):
+        self.game_world = GameWorld()
+        self.end_screen = None
+        self.state = "playing"
+
 
     def _handle_events(self):
         for event in pygame.event.get():
-            if event.type == KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    self.running = False
-                if event.key == pygame.K_m:
-                    self.game_world.debug = not self.game_world.debug
             if event.type == QUIT:
                 self.running = False
+                continue
 
-            if (
-                self.game_world is not None
-                and (self.game_world.game_over or self.game_world.game_won)
-                and event.type == pygame.MOUSEBUTTONDOWN
-                and event.button == 1
-            ):
-                if self.retry_button.collidepoint(event.pos):
-                    self.game_world = GameWorld()
-
-                elif self.exit_button.collidepoint(event.pos):
+            if event.type == KEYDOWN and event.key == pygame.K_ESCAPE:
+                if self.state in ("playing", "scores", "credits"):
+                    self.state = "menu"
+                elif self.state == "menu":
                     self.running = False
+                continue
 
-            elif self.game_world is not None:
-                self.game_world.handle_event(event)
+            if self.state == "menu":
+                self._handle_menu_event(event)
+            elif self.state == "playing":
+                self._handle_playing_event(event)
+            elif self.state == "end":
+                self._handle_end_event(event)
+            elif self.state == "scores":
+                if self.scoreboard_screen.handle_event(event) == "menu":
+                    self.state = "menu"
+            elif self.state == "credits":
+                if self.credits_screen.handle_event(event) == "menu":
+                    self.state = "menu"
 
-    def _update(self, dt): 
-        self.game_world.update(dt)
+    def _handle_menu_event(self, event):
+        action = self.main_menu.handle_event(event)
+        if action == "play":
+            self._start_new_game()
+        elif action == "scores":
+            self.state = "scores"
+        elif action == "credits":
+            self.state = "credits"
+        elif action == "exit":
+            self.running = False
+
+    def _handle_playing_event(self, event):
+        if event.type == KEYDOWN and event.key == pygame.K_m:
+            self.game_world.debug = not self.game_world.debug
+        self.game_world.handle_event(event)
+
+    def _handle_end_event(self, event):
+        if self.end_screen is None:
+            return
+
+        result = self.end_screen.handle_event(event)
+        if result is None:
+            return
+
+        action, name = result
+        self.last_player_name = name or self.last_player_name
+
+        if action == "save":
+            save_score(name, self.game_world.score)
+            self.end_screen.mark_saved()
+        elif action == "menu":
+            if not self.end_screen.saved:
+                save_score(name, self.game_world.score)
+            self.end_screen = None
+            self.game_world = None
+            self.state = "menu"
+
+
+    def _update(self, dt):
+        if self.state == "playing":
+            self.game_world.update(dt)
+            if self.game_world.game_over or self.game_world.game_won:
+                self.end_screen = EndScreen(
+                    self.font,
+                    self.title_font,
+                    won=self.game_world.game_won,
+                    score=self.game_world.score,
+                    last_name=self.last_player_name,
+                )
+                self.state = "end"
+        elif self.state == "end" and self.end_screen is not None:
+            self.end_screen.update(dt)
+
 
     def _render(self):
         if self.background is not None:
             self.screen.blit(self.background, (0, 0))
         else:
             self.screen.fill(BLACK)
-        self.game_world.draw(self.screen)
 
-        if self.game_world is not None and self.game_world.player is not None:
-            for i in range(self.game_world.player.lives):
-                x = 10 + i * 20
-                y = 6
-                if self.heart_sprite is not None:
-                    self.screen.blit(self.heart_sprite, (x, y))
-                else:
-                    pygame.draw.circle(self.screen, RED, (x + 6, y + 6), 6)
-                    pygame.draw.circle(self.screen, WHITE, (x + 6, y + 6), 6, 1)
+        if self.state == "menu":
+            self.main_menu.draw(self.screen)
+
+        elif self.state in ("playing", "end"):
+            self.game_world.draw(self.screen)
+            self._draw_hud()
+            if self.state == "end" and self.end_screen is not None:
+                self.end_screen.draw(self.screen)
+
+        elif self.state == "scores":
+            self.scoreboard_screen.draw(self.screen, load_scores())
+
+        elif self.state == "credits":
+            self.credits_screen.draw(self.screen)
+
+        pygame.display.flip()
+
+    def _draw_hud(self):
+        if self.game_world is None or self.game_world.player is None:
+            return
+
+        for i in range(self.game_world.player.lives):
+            x = 10 + i * 20
+            y = 6
+            if self.heart_sprite is not None:
+                self.screen.blit(self.heart_sprite, (x, y))
+            else:
+                pygame.draw.circle(self.screen, RED, (x + 6, y + 6), 6)
+                pygame.draw.circle(self.screen, WHITE, (x + 6, y + 6), 6, 1)
 
         artifact_text = self.game_world.get_artifact_info()
         artifact_surface = self.font.render(artifact_text, True, WHITE)
@@ -111,38 +199,6 @@ class GameManager:
         score_text = self.game_world.get_score_text()
         score_surface = self.font.render(score_text, True, WHITE)
         self.screen.blit(score_surface, (10, 50))
-
-        if self.game_world is not None and (self.game_world.game_over or self.game_world.game_won):
-
-            overlay = pygame.Surface((SCREEN_W, SCREEN_H))
-            overlay.set_alpha(150)
-            overlay.fill((0, 0, 0))
-            self.screen.blit(overlay, (0, 0))
-
-            message = "YOU WIN" if self.game_world.game_won else "GAME OVER"
-            text_surface = self.font.render(message, True, WHITE)
-            text_rect = text_surface.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2))
-            self.screen.blit(text_surface, text_rect)
-
-            final_score = self.font.render(f"Final Score: {self.game_world.score}", True, WHITE)
-            final_rect = final_score.get_rect(center=(SCREEN_W // 2, SCREEN_H // 2 + 24))
-            self.screen.blit(final_score, final_rect)
-
-            pygame.draw.rect(self.screen, WHITE, self.retry_button)
-            pygame.draw.rect(self.screen, BLACK, self.retry_button, 2)
-
-            retry_text = self.font.render("Tentar novamente?", True, BLACK)
-            retry_rect = retry_text.get_rect(center=self.retry_button.center)
-            self.screen.blit(retry_text, retry_rect)
-
-            pygame.draw.rect(self.screen, WHITE, self.exit_button)
-            pygame.draw.rect(self.screen, BLACK, self.exit_button, 2)
-
-            exit_text = self.font.render("Sair", True, BLACK)
-            exit_rect = exit_text.get_rect(center=self.exit_button.center)
-            self.screen.blit(exit_text, exit_rect)
-
-        pygame.display.flip()
 
     def quit(self):
         pygame.quit()

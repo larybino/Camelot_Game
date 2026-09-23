@@ -8,6 +8,7 @@ from src.menu.main_menu import MainMenu
 from src.menu.scoreboard_screen import ScoreboardScreen
 from src.menu.credits_screen import CreditsScreen
 from src.menu.end_screen import EndScreen
+from src.menu.tutorial import Tutorial
 
 class GameManager:
     def __init__(self):
@@ -30,6 +31,7 @@ class GameManager:
         self.scoreboard_screen = ScoreboardScreen(self.font, self.title_font)
         self.credits_screen = CreditsScreen(self.font, self.title_font)
         self.end_screen = None
+        self.tutorial = None
 
         music_path = Path(__file__).resolve().parents[2] / "assets" / "sprites" / "music" / "Flight_from_the_keep.mp3"
         if music_path.exists():
@@ -73,6 +75,7 @@ class GameManager:
     def _start_new_game(self):
         self.game_world = GameWorld()
         self.end_screen = None
+        self.tutorial = Tutorial()
         self.state = "playing"
 
 
@@ -114,6 +117,9 @@ class GameManager:
             self.running = False
 
     def _handle_playing_event(self, event):
+        if (event.type == KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_KP_ENTER)
+                and self.tutorial is not None and not self.tutorial.done):
+            self.tutorial.next()
         if event.type == KEYDOWN and event.key == pygame.K_m:
             self.game_world.debug = not self.game_world.debug
         self.game_world.handle_event(event)
@@ -130,11 +136,9 @@ class GameManager:
         self.last_player_name = name or self.last_player_name
 
         if action == "save":
-            save_score(name, self.game_world.score)
-            self.end_screen.mark_saved()
-        elif action == "menu":
             if not self.end_screen.saved:
                 save_score(name, self.game_world.score)
+                self.end_screen.mark_saved()
             self.end_screen = None
             self.game_world = None
             self.state = "menu"
@@ -142,6 +146,10 @@ class GameManager:
 
     def _update(self, dt):
         if self.state == "playing":
+            if self.tutorial is not None and not self.tutorial.done:
+                player = self.game_world.player
+                player_x = player.pos.x if player is not None else 0.0
+                self.tutorial.update(dt, player_x)
             self.game_world.update(dt)
             if self.game_world.game_over or self.game_world.game_won:
                 self.end_screen = EndScreen(
@@ -168,6 +176,8 @@ class GameManager:
         elif self.state in ("playing", "end"):
             self.game_world.draw(self.screen)
             self._draw_hud()
+            if self.state == "playing" and self.tutorial is not None:
+                self.tutorial.draw(self.screen)
             if self.state == "end" and self.end_screen is not None:
                 self.end_screen.draw(self.screen)
 

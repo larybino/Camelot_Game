@@ -7,7 +7,6 @@ from src.utils.config import SCREEN_W, SCREEN_H, WHITE, GOLD
 
 class EndScreen:
 
-
     def __init__(self, font, title_font, won, score, last_name=""):
         self.font = font
         self.title_font = title_font
@@ -16,16 +15,13 @@ class EndScreen:
         self.saved = False
 
         self.name_input = TextInput((SCREEN_W // 2 - 110, 230, 220, 36), font, initial_text=last_name)
-        self.save_button = Button((SCREEN_W // 2 - 175, 288, 170, 40), "Salvar Pontuação", font)
-        self.menu_button = Button((SCREEN_W // 2 + 15, 288, 160, 40), "Voltar ao Menu", font)
+        self.save_button = Button((SCREEN_W // 2 - 85, 288, 170, 40), "Salvar Pontuação", font)
 
     def handle_event(self, event):
         self.name_input.handle_event(event)
 
         if self.save_button.is_clicked(event):
             return ("save", self.name_input.text)
-        if self.menu_button.is_clicked(event):
-            return ("menu", self.name_input.text)
         return None
 
     def mark_saved(self):
@@ -54,4 +50,3 @@ class EndScreen:
 
         self.save_button.text = "Pontuação salva!" if self.saved else "Salvar Pontuação"
         self.save_button.draw(surface)
-        self.menu_button.draw(surface)

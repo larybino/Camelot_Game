@@ -26,6 +26,7 @@ class GameWorld:
         self.ladders = self._build_ladders()
         self.artifacts = self._build_artifacts()
         self.coins = self._build_coins()
+        self.crown = Artifact("Coroa", "victory", pygame.Vector2(0, 0))
         self.player    = self._build_player()
         self.camera_x  = 0.0
         self.player_spawn = self.player.pos.copy()
@@ -47,12 +48,15 @@ class GameWorld:
 
         self.active_objects.extend(self.artifacts)
         self.active_objects.extend(self.coins)
+        self.active_objects.append(self.crown)
         self.active_objects.append(self.player)
 
         self.enemies = self._spawn_enemies()
         self.active_objects.extend(self.enemies)
         self._randomize_collectibles_on_platforms()
         self.world_end_x = self._compute_world_end_x()
+        self.crown.pos.x = self.world_end_x - self.crown.width
+        self.crown.pos.y = GROUND_Y - self.crown.height
 
     def _load_sfx(self):
         root = Path(__file__).resolve().parents[2]
@@ -207,9 +211,7 @@ class GameWorld:
         collision.collect_artifacts(self.player, self.artifacts, self.active_objects)
 
     def _is_victory(self):
-        if self.game_over:
-            return False
-        return len(self.player.artifacts) >= 2 and self.player.is_alive
+        return any(artifact.name == "Coroa" for artifact in self.player.artifacts)
 
     def _apply_artifact_effect(self, artifact):
         name = artifact.name
@@ -257,6 +259,13 @@ class GameWorld:
             self._apply_artifact_effect(collected_artifact)
             self.score += 50
             self._play_sfx("artifact")
+
+        collected_crown = collision.collect_artifacts(
+            self.player, [self.crown] if self.crown.active else [], self.active_objects
+        )
+        if collected_crown is not None:
+            self.score += 100
+            self._play_sfx("victory")
 
         collected_coin = collision.collect_coins(self.player, self.coins, self.active_objects)
         if collected_coin is not None:
@@ -359,7 +368,10 @@ class GameWorld:
             artifact.draw(surface, 0)
         
     def get_artifact_info(self):
-        return f"Artifacts: {len(self.player.artifacts)}/3"
+        regular_artifacts = sum(
+            artifact.name != "Coroa" for artifact in self.player.artifacts
+        )
+        return f"Artifacts: {regular_artifacts}/3"
 
     def get_score_text(self):
         return f"Score: {self.score}"

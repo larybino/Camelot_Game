@@ -11,6 +11,7 @@ class Artifact(GameObject):
         "Excalibur": "Item__07.png",
         "Santo Graal": "Item__71.png",
         "Cajado de Merlim": "Item__20.png",
+        "Coroa": "Item__47.png",
     }
 
     def __init__(self, name, power, pos):
@@ -51,6 +52,9 @@ class Artifact(GameObject):
             sprite_x = draw_rect.x + (self.width - DRAW_SIZE) // 2
             sprite_y = draw_rect.y + (self.height - DRAW_SIZE)
             surface.blit(sprite_scaled, (sprite_x, sprite_y))
+            return
+
+        if self.name == "Coroa":
             return
 
         pygame.draw.ellipse(surface, CYAN,

@@ -28,8 +28,8 @@ class GameManager:
         self.last_player_name = ""
         self.state = "menu"  
         self.main_menu = MainMenu(self.font, self.title_font)
-        self.scoreboard_screen = ScoreboardScreen(self.font, self.title_font)
-        self.credits_screen = CreditsScreen(self.font, self.title_font)
+        self.scoreboard_screen = None
+        self.credits_screen = None
         self.end_screen = None
         self.tutorial = None
 
@@ -110,9 +110,14 @@ class GameManager:
         if action == "play":
             self._start_new_game()
         elif action == "scores":
+            if self.scoreboard_screen is None:
+                self.scoreboard_screen = ScoreboardScreen(self.font, self.title_font)
             self.state = "scores"
         elif action == "credits":
+            if self.credits_screen is None:
+                self.credits_screen = CreditsScreen(self.font, self.title_font)
             self.state = "credits"
+            self.credits_screen = CreditsScreen(self.font, self.title_font)
         elif action == "exit":
             self.running = False
 
